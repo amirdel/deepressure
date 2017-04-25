@@ -11,9 +11,11 @@
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import os
-from simulator.linear_system_solver import LSGridPeriodicPurturbations
-from simulator.grid_structured import structuredGrid
+
 import numpy as np
+from simulator.grid_structured import structuredGrid
+
+from deepres.simulator.linear_system_solver import LSGridPeriodicPurturbations
 
 script_path = os.path.dirname(__file__)
 script_files_folder = os.path.join(script_path, 'script_files')

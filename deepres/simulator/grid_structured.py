@@ -11,8 +11,8 @@
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import numpy as np
-from simulator.structured_cells import structured_cells
-from simulator.zigzag_tubes import zigzag_tubes
+from deepres.simulator.zigzag_tubes import zigzag_tubes
+from deepres.simulator.structured_cells import structured_cells
 
 class structuredGrid(object):
     def __init__(self, m, n, dx, dy, boundaryType='non-periodic'):
