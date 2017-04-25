@@ -13,8 +13,7 @@
 import os
 
 import numpy as np
-from simulator.grid_structured import structuredGrid
-
+from deepres.simulator.grid_structured import structuredGrid
 from deepres.simulator.linear_system_solver import LSGridPeriodicPurturbations
 
 script_path = os.path.dirname(__file__)
