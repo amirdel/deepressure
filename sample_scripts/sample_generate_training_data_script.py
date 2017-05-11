@@ -10,6 +10,7 @@
 # LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+import numpy as np
 import os as os
 from deepres.simulator.generate_training_data import generate_continuum_realizations
 
@@ -30,4 +31,7 @@ n_images = 10
 generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y, n_images)
 
 # visualize a number of training examples
-
+# load the data we just saved
+data = np.load(save_path)
+X = data['X']
+Y = data['Y']

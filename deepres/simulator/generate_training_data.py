@@ -33,7 +33,7 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
     n_cell = grid.m
     n_face = grid.nr_t
     # initialize perm matrix and pressure solution (n_cell x n_cell x n_perm_fields)
-    X, Y = [np.zeros((n_cell, n_cell, n_images, 1)) for i in range(2)]
+    X, Y = [np.zeros((n_images, n_cell, n_cell, 1)) for i in range(2)]
     # initialize arrays for saving the faces velocities
     U_face = np.zeros((n_face, n_images))
     # load the permeability dataframe, each column is one realization
@@ -59,8 +59,8 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
         LS.set_dirichlet_pores([0], 0.0)
         LS.solve()
         # copy the pressure solution and the permeability field to the X and Y
-        X[:, :, i, 0] = np.reshape(logperm, (n_cell, n_cell))
-        Y[:, :, i, 0] = np.copy(np.reshape(LS.sol, (n_cell, n_cell)))
+        X[i, :, :, 0] = np.reshape(logperm, (n_cell, n_cell))
+        Y[i, :, :, 0] = np.copy(np.reshape(LS.sol, (n_cell, n_cell)))
         # perform particle tracking
         grid.pressure = LS.sol
         grid.face_velocities = LS.set_face_velocity(dp_x, dp_y)
