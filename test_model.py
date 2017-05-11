@@ -4,12 +4,10 @@ import random
 from model import Model
 
 class Config():
-    nx = 10
-    hidden_size = 20
-    lr = 0.001
+    nx = 100
+    lr = 0.0005
     n_epochs =10
-    batch_size = 2
-    conv_size =3
+    batch_size = 50
 
 
 class TestModel(Model):
@@ -60,10 +58,24 @@ class TestModel(Model):
             pred: A tensor of shape (batch_size, n_classes)
         """
         config = self.config
-        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=32,kernel_size=[config.conv_size, config.conv_size], padding="same",activation=tf.nn.relu)
-        preds = tf.reduce_sum(conv1,axis = -1,keep_dims= True)
+        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        
+        conv1_pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2,2], strides=2)
+        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv2_pool1_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])  
 
-        return preds
+        conv1_pool2 = tf.layers.max_pooling2d(inputs=conv1_pool1, pool_size=[2,2], strides=2)
+        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv2_pool2_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])   
+
+        conv2 = tf.layers.conv2d(inputs=conv1, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv3 = tf.layers.conv2d(inputs=conv2, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+
+        conv_comb = conv3 + conv2_pool1_upscaled+ conv2_pool2_upscaled
+        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=8,kernel_size=[1,1], padding="same",activation=tf.nn.relu)
+        pred = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1], padding="same",activation=tf.nn.relu)
+        
+        return pred
 
 
     def add_loss_op(self, pred):
@@ -102,7 +114,7 @@ class TestModel(Model):
         """
         feed = self.create_feed_dict(inputs_batch, labels_batch=labels_batch)
         _, loss = sess.run([self.train_op, self.loss], feed_dict=feed)
-        return loss
+        return loss/(len(inputs_batch))
 
     def predict_on_batch(self, sess, inputs_batch):
         """Make predictions for the provided batch of data
@@ -124,6 +136,7 @@ class TestModel(Model):
             if dev_score < best_dev:
                 best_dev = dev_score
                 print("new best norm found {:}".format(best_dev))
+
     def run_epoch(self,sess,train_examples,dev_set):
         config = self.config
         num_train = len(train_examples)
@@ -144,7 +157,7 @@ class TestModel(Model):
         norms = []
         for i in range(len(labels_dev)):
             norms.append(np.linalg.norm(labels_dev[i]-pred[i,:,:,:]))
-        return np.max(norms)
+        return np.mean(norms)
 
 
     def build(self):
@@ -159,16 +172,23 @@ class TestModel(Model):
 if __name__ == "__main__":
     print("Started running")
     config = Config()
+
+    datFile = np.load('temp/data.npz')
+    X = datFile['X']
+    Y = datFile['Y']
+    config.nx = X.shape[1]
+    print (X.shape)
     # create random permeability
-    n_train = 15
-    train_perm = np.random.random((n_train,config.nx,config.nx,1))
-    train_pres = 5*train_perm - 2 
+    n_train = int(X.shape[0]*0.8)
+    n_dev = X.shape[0]-n_train
+    train_perm = X[:n_train]
+    train_pres = Y[:n_train] 
     train_examples = []
     for i in range(n_train):
         train_examples.append((train_perm[i,:,:,:],train_pres[i,:,:,:]))
-    n_dev = 3
-    dev_perm = np.random.random((n_dev,config.nx,config.nx,1))
-    dev_pres = 5*train_perm - 2 
+    n_dev = 5
+    dev_perm = X[n_train+1:]
+    dev_pres = Y[n_train+1:]    
     dev_set = []
     for i in range(n_dev):
         dev_set.append((dev_perm[i,:,:,:],dev_pres[i,:,:,:]))
