@@ -38,6 +38,7 @@ class Model(object):
         Returns:
             pred: A tensor of shape (batch_size, n_classes)
         """
+
         raise NotImplementedError("Each Model must re-implement this method.")
 
     def add_loss_op(self, pred):
