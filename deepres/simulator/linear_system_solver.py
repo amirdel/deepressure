@@ -375,33 +375,3 @@ class LSGridPeriodicPurturbations(LinearSystemStandard):
         u = 0.5*(face_velocities[cell_faces[:,0]] + face_velocities[cell_faces[:,1]])
         v = 0.5 * (face_velocities[cell_faces[:, 2]] + face_velocities[cell_faces[:, 3]])
         return u,v
-
-
-class LSGridPressure(LinearSystemStandard):
-    # TODO: Marco
-    """
-    a class for solving the steady state on phase pressure equation
-    """
-
-    def get_face_velocity(self):
-        grid = self.network
-        p = self.sol
-        lx, ly = grid.lx, grid.ly
-        dx, dy, dz = grid.dx, grid.dy, grid.dz
-        y_faces, d_cell_numbers = grid.y_faces, grid.d_cell_numbers
-        face_adj_list = grid.updwn_cells
-        transRockGeometric = grid.transmissibility
-        face_velocity = np.zeros(grid.nr_t)
-        for face in range(grid.nr_t):
-            # find adjacent cells
-            adj_cells = face_adj_list[face]
-            trans = transRockGeometric[face]
-            ups, dwn = adj_cells[0], adj_cells[1]
-            if ~y_faces[face]:
-                d, l = dx, lx
-            else:
-                # y face
-                d, l = dy, ly
-            A = dz * d
-            face_velocity[face] = trans * (p[ups] - p[dwn]) / A
-        return face_velocity

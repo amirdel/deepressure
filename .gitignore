@@ -50,3 +50,5 @@ a.out
 .idea/
 temp_scripts/
 .env/
+
+temp/

@@ -23,12 +23,10 @@ dy = 1.0
 m = 100
 n = 100
 #save folder - if the folder does not exist one will be created
-save_folder = '/home/amirhossein/Desktop/grid_test'
-if not os.path.exists(save_folder):
-    os.mkdir(save_folder)
+save_folder = os.path.join(os.path.dirname(__file__), 'script_files')
 #specify boundary type -> full-periodic or non-periodic
 boundaryType = 'full-periodic'
-suffix = '_periodic_100'
+suffix = '_periodic'
 #save file name
 grid_name = str(m) + '_'+ str(n)+ suffix +'.pkl'
 #create the grid

@@ -11,7 +11,6 @@
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import os
-
 import numpy as np
 from deepres.simulator.grid_structured import structuredGrid
 from deepres.simulator.linear_system_solver import LSGridPeriodicPurturbations
