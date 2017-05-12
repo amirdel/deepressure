@@ -4,7 +4,8 @@ import os as os
 import matplotlib.pyplot as plt
 import pickle as pickle
 
-proj_folder = os.path.dirname(os.path.dirname(__file__))
+proj_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(proj_folder)
 # path to save the training data file
 save_folder = os.path.join(proj_folder, 'temp')
 save_path = os.path.join(save_folder, 'data.npz')

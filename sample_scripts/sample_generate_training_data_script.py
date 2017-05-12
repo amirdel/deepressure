@@ -10,11 +10,10 @@
 # LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import numpy as np
 import os as os
 from deepres.simulator.generate_training_data import generate_continuum_realizations
 
-proj_folder = os.path.dirname(os.path.dirname(__file__))
+proj_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # path to save the training data file
 save_folder = os.path.join(proj_folder, 'temp')
 if not os.path.exists(save_folder):
@@ -29,9 +28,3 @@ dp_x, dp_y = 1.0, 0.0
 # number of training images to create
 n_images = 10
 generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y, n_images)
-
-# visualize a number of training examples
-# load the data we just saved
-data = np.load(save_path)
-X = data['X']
-Y = data['Y']
