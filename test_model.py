@@ -8,7 +8,8 @@ class Config():
     lr = 0.0001
     n_epochs =10
     batch_size = 30
-
+    n_filters = 16
+    dropout = 0.2
 
 class TestModel(Model):
     def add_placeholders(self):
@@ -23,7 +24,8 @@ class TestModel(Model):
 
         self.input_placeholder   = tf.placeholder(tf.float32,   (None, self.config.nx,self.config.nx,1), name = "input")
         self.labels_placeholder  = tf.placeholder(tf.float32,   (None, self.config.nx,self.config.nx,1), name = "out")
-    def create_feed_dict(self, inputs_batch, labels_batch=None):
+        self.is_training = tf.placeholder(tf.bool)
+    def create_feed_dict(self, inputs_batch, is_training,labels_batch=None):
         """Creates the feed_dict for one step of training.
         A feed_dict takes the form of:
         feed_dict = {
@@ -43,11 +45,13 @@ class TestModel(Model):
         if labels_batch is None:
             feed_dict = {
                 self.input_placeholder: inputs_batch,
+                self.is_training: is_training,
             }
         else:
             feed_dict = {
                 self.input_placeholder: inputs_batch,
                 self.labels_placeholder: labels_batch,
+                self.is_training: is_training
             }
         ### END YOUR CODE
         return feed_dict
@@ -58,21 +62,24 @@ class TestModel(Model):
             pred: A tensor of shape (batch_size, n_classes)
         """
         config = self.config
-        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        
-        conv1_pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2,2], strides=2)
-        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+
+        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=config.n_filters,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        normed_conv1 = tf.layers.batch_normalization(conv1,axis = -1,center = True, scale = True, training = self.is_training,trainable = True)
+        dropout_conv1 = tf.layers.dropout(inputs = normed_conv1,rate=config.dropout,training = self.is_training)
+
+        conv1_pool1 = tf.layers.max_pooling2d(inputs=dropout_conv1, pool_size=[2,2], strides=2)
+        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=config.n_filters,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv2_pool1_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])  
 
         conv1_pool2 = tf.layers.max_pooling2d(inputs=conv1_pool1, pool_size=[2,2], strides=2)
-        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=8,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
-        conv2_pool2_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])   
+        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=config.n_filters,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
+        conv2_pool2_upscaled = tf.image.resize_images(conv2_pool2, [config.nx, config.nx])   
 
-        conv2 = tf.layers.conv2d(inputs=conv1, filters=8,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
-        conv3 = tf.layers.conv2d(inputs=conv2, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv2 = tf.layers.conv2d(inputs=dropout_conv1, filters=config.n_filters,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
+        conv3 = tf.layers.conv2d(inputs=conv2, filters=config.n_filters,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
 
         conv_comb = conv3 + conv2_pool1_upscaled+ conv2_pool2_upscaled
-        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=8,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=config.n_filters,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         pred = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         
         return pred
@@ -112,7 +119,7 @@ class TestModel(Model):
         Returns:
             loss: loss over the batch (a scalar)
         """
-        feed = self.create_feed_dict(inputs_batch, labels_batch=labels_batch)
+        feed = self.create_feed_dict(inputs_batch, True,labels_batch=labels_batch)
         _, loss = sess.run([self.train_op, self.loss], feed_dict=feed)
         return loss/(len(inputs_batch))
 
@@ -124,7 +131,7 @@ class TestModel(Model):
         Returns:
             predictions: np.ndarray of shape (n_samples, n_classes)
         """
-        feed = self.create_feed_dict(inputs_batch)
+        feed = self.create_feed_dict(inputs_batch,False)
         predictions = sess.run(self.pred, feed_dict=feed)
         return predictions
 
@@ -180,6 +187,13 @@ if __name__ == "__main__":
     datFile = np.load('temp/data.npz')
     X = datFile['X']
     Y = datFile['Y']
+    vals = np.arange(99,-1,-1)/100
+    mat_rep = np.tile(vals,(100,1))
+    Y_new = Y.reshape((Y.shape[0],Y.shape[1],Y.shape[2]))
+    for i in range(Y.shape[0]):
+        Y_new[i,:,:] += mat_rep
+
+    Y = Y_new.reshape((Y.shape[0],Y.shape[1],Y.shape[2],1))
     config.nx = X.shape[1]
     print (X.shape)
     # create random permeability
