@@ -5,9 +5,9 @@ from model import Model
 
 class Config():
     nx = 100
-    lr = 0.0005
+    lr = 0.0001
     n_epochs =10
-    batch_size = 50
+    batch_size = 30
 
 
 class TestModel(Model):
@@ -58,22 +58,22 @@ class TestModel(Model):
             pred: A tensor of shape (batch_size, n_classes)
         """
         config = self.config
-        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv1 = tf.layers.conv2d(inputs=self.input_placeholder, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         
         conv1_pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2,2], strides=2)
-        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv2_pool1_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])  
 
         conv1_pool2 = tf.layers.max_pooling2d(inputs=conv1_pool1, pool_size=[2,2], strides=2)
-        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=8,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
         conv2_pool2_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])   
 
-        conv2 = tf.layers.conv2d(inputs=conv1, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
-        conv3 = tf.layers.conv2d(inputs=conv2, filters=8,kernel_size=[3,3], padding="same",activation=tf.nn.relu)
+        conv2 = tf.layers.conv2d(inputs=conv1, filters=8,kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
+        conv3 = tf.layers.conv2d(inputs=conv2, filters=8,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
 
         conv_comb = conv3 + conv2_pool1_upscaled+ conv2_pool2_upscaled
-        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=8,kernel_size=[1,1], padding="same",activation=tf.nn.relu)
-        pred = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1], padding="same",activation=tf.nn.relu)
+        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=8,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        pred = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         
         return pred
 
@@ -85,7 +85,7 @@ class TestModel(Model):
         Returns:
             loss: A 0-d tensor (scalar) output
         """
-        loss = tf.norm(pred-self.labels_placeholder)
+        loss = tf.nn.l2_loss(pred-self.labels_placeholder)
         return loss
 
     def add_training_op(self, loss):
@@ -130,11 +130,15 @@ class TestModel(Model):
 
     def fit(self,sess,train_examples,dev_set):
         best_dev = 1e9
+        best_pred = None
         for epoch in range(self.config.n_epochs):
             print ("Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
-            dev_score = self.run_epoch(sess,train_examples,dev_set)
+            dev_score, pred = self.run_epoch(sess,train_examples,dev_set)
             if dev_score < best_dev:
                 best_dev = dev_score
+                best_pred = pred
+                input_dev, labels_dev = zip(*dev_set)
+                np.savez("best_pred",best_pred=best_pred,input_dev=input_dev,labels_dev=labels_dev)
                 print("new best norm found {:}".format(best_dev))
 
     def run_epoch(self,sess,train_examples,dev_set):
@@ -156,8 +160,8 @@ class TestModel(Model):
         pred = self.predict_on_batch(sess,input_dev)
         norms = []
         for i in range(len(labels_dev)):
-            norms.append(np.linalg.norm(labels_dev[i]-pred[i,:,:,:]))
-        return np.mean(norms)
+            norms.append(np.sum(np.power(labels_dev[i]-pred[i,:,:,:],2)))
+        return np.sum(norms)*0.5/len(labels_dev), pred
 
 
     def build(self):
