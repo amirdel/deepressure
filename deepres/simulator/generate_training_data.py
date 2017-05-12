@@ -66,9 +66,9 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
         Y[i, :, :, 0] = np.copy(np.reshape(LS.sol, (n_cell, n_cell)))
         # perform particle tracking
         grid.pressure = LS.sol
-        grid.face_velocities = PI.set_face_velocity(LS.sol, grid.transmissibility)
-        # u, v = LS.get_cell_velocity()
-        # save u and v
-        U_face[:,i] = grid.face_velocities[:]
-    # save X, Y, U, V
-    np.savez(save_path, X=X, Y=Y, U_face=U_face)
+        # get the operators to calculate face velocity
+        U_face_operator, U_face_fixed = PI.face_velocity_operator(grid.transmissibility)
+        # save face_velocity
+        U_face[:,i] = np.dot(U_face_operator, LS.sol) + U_face_fixed
+    # save X, Y, U_face, operators
+    np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=U_face_operator, U_face_fixed=U_face_fixed)
