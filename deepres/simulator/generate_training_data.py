@@ -13,7 +13,8 @@
 import numpy as np
 import pickle as pickle
 import pandas as pd
-from deepres.simulator.linear_system_solver import LSGridPeriodicPurturbations
+from deepres.simulator.linear_system_solver import LinearSystemStandard
+from deepres.simulator.periodic_field_functions import PeriodicPerturbations
 
 def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y, n_images, print_every=50):
     """
@@ -40,7 +41,9 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
     # this is the file saved by SGEMS (Geostats software)
     perm_frame = pd.read_csv(perm_path, usecols=range(n_images))
     # initialize a linear system for the pressure fluctuations for the grid
-    LS = LSGridPeriodicPurturbations(grid)
+    LS = LinearSystemStandard(grid)
+    # initialize the perturbation system object
+    PI = PeriodicPerturbations(grid, dp_x, dp_y)
     # for the number of specified realizations run particle tracking and save the results
     for i in range(n_images):
         if not i%print_every:
@@ -53,7 +56,7 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
         LS.fill_matrix(grid.transmissibility)
         # for each cell add (dp_x/lx)*(T_down - T_up)_x + (dp_y/ly)*(T_down - T_up)_y
         # to the rhs
-        rhs_vec = LS.periodic_rhs_vec(dp_x, dp_y)
+        rhs_vec = PI.periodic_rhs_vec(grid.transmissibility)
         LS.rhs.set_neumann_pores_distributed(range(grid.nr_p), rhs_vec)
         # set a dirichlet cell: no fluctuation for cell 0
         LS.set_dirichlet_pores([0], 0.0)
@@ -63,7 +66,7 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
         Y[i, :, :, 0] = np.copy(np.reshape(LS.sol, (n_cell, n_cell)))
         # perform particle tracking
         grid.pressure = LS.sol
-        grid.face_velocities = LS.set_face_velocity(dp_x, dp_y)
+        grid.face_velocities = PI.set_face_velocity(LS.sol, grid.transmissibility)
         # u, v = LS.get_cell_velocity()
         # save u and v
         U_face[:,i] = grid.face_velocities[:]

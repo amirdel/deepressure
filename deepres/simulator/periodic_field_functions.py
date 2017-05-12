@@ -14,9 +14,9 @@ import numpy as np
 
 class PeriodicPerturbations(object):
     """
-    Solver class used for solving steady state problem on periodic grids and setting mean
-    pressure gradient in the x and y direction. The linear system is set for the fluctuations around the
-    value.
+    Class used for solving steady state problem on periodic grids and setting mean
+    pressure gradient in the x and y direction. This class contains the methods that are
+    needed for the linear system and the methods for generating velocities from these periodic solutions.
     """
     def __init__(self, network, dp_x, dp_y):
         """
@@ -29,19 +29,18 @@ class PeriodicPerturbations(object):
         self.dp_x = dp_x
         self.dp_y = dp_y
 
-    def periodic_rhs_vec(self, dp_x, dp_y):
+    def periodic_rhs_vec(self, transRockGeometric):
         # TODO: needs to have at least three rows and columns, no problem for my case
         """
         find the rhs for the full periodic case
-        :param dp_x: average pressure difference of the left and right boundary (P_l - P_r)
-        :param dp_y: average pressure difference of the bottom and top boundary (P_b - P_t)
-        :return: rhs vector n_cells (nr_p)
+        :param transRockGeometric: face trans rock geometric
+        :return rhs_vec: vector size number of cells
         """
+        dp_x, dp_y = self.dp_x, self.dp_y
         grid = self.network
         lx, ly = grid.lx, grid.ly
         rhs_vec = np.zeros(grid.nr_p)
         nFaces = grid.nr_t
-        transRockGeometric = grid.transmissibility
         faceCells = grid.updwn_cells
         dx, dy, dz = grid.dx, grid.dy, grid.dz
         dCellNumbers, yFaces = grid.d_cell_numbers, grid.y_faces
@@ -59,20 +58,18 @@ class PeriodicPerturbations(object):
             rhs_vec[dwn] += (dp/l)*trans*d
         return rhs_vec
 
-    def set_face_velocity(self, dp_x, dp_y):
+    def set_face_velocity(self, p_fluc, transRockGeometric):
         """
         function to set the right hand side vector when solving for pressure fluctuations
-        :param dp_x: average pressure difference of the left and right boundary (P_l - P_r)
-        :param dp_y: verage pressure difference of the bottom and top boundary (P_b - P_t)
+        :param transRockGeometric: face trans rock geometric
         :return: velocity of at the cell faces (grid.nr_t)
         """
+        dp_x, dp_y = self.dp_x, self.dp_y
         grid = self.network
-        p_fluc = self.sol
         lx, ly = grid.lx, grid.ly
         dx, dy, dz = grid.dx, grid.dy, grid.dz
         y_faces, d_cell_numbers = grid.y_faces, grid.d_cell_numbers
         face_adj_list = grid.updwn_cells
-        transRockGeometric = grid.transmissibility
         face_velocity = np.zeros(grid.nr_t)
         for face in range(grid.nr_t):
             # find adjacent cells
@@ -88,7 +85,13 @@ class PeriodicPerturbations(object):
             face_velocity[face] = trans*(d*dp/l + (p_fluc[ups]-p_fluc[dwn]))/A
         return face_velocity
 
-    def face_velocity_operator(self, dp_x, dp_y):
+    def face_velocity_operator(self, transRockGeometric):
+        """
+
+        :param transRockGeometric:
+        :return: A, b s.t np.dot(A, p_fluc) + b = face_velocities
+        """
+        dp_x, dp_y = self.dp_x, self.dp_y
         grid = self.network
         face_vel_opretator = np.zeros((grid.nr_t, grid.nr_p))
         face_vel_fix_grad = np.zeros(grid.nr_t)
@@ -96,7 +99,6 @@ class PeriodicPerturbations(object):
         dx, dy, dz = grid.dx, grid.dy, grid.dz
         y_faces, d_cell_numbers = grid.y_faces, grid.d_cell_numbers
         face_adj_list = grid.updwn_cells
-        transRockGeometric = grid.transmissibility
         for face in range(grid.nr_t):
             # find adjacent cells
             adj_cells = face_adj_list[face]
