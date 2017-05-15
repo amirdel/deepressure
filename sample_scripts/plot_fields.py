@@ -3,6 +3,7 @@ import numpy as np
 import os as os
 import matplotlib.pyplot as plt
 import pickle as pickle
+from deepres.simulator.periodic_field_functions import PeriodicPerturbations
 
 proj_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(proj_folder)
@@ -27,22 +28,26 @@ gridx = grid.pores.x
 gridy = grid.pores.y
 x_mat = np.reshape(gridx, (nx,nx), order='F')
 y_mat = np.reshape(gridy, (nx,nx), order='F')
+PI = PeriodicPerturbations(grid, None, None)
 # plot permeability
 for i in range(3):
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     perm_mat = X[i,:,:,0]
     p = ax.pcolormesh(x_mat, y_mat, perm_mat, cmap=plt.cm.coolwarm)
-    ax.set_aspect('equal', 'box')
+    # ax.set_aspect('equal', 'box')
     # plot the cell center velocity on top of perm
     div = face_vel_operator[i]
-    pressure_vec = Y[i,:,:,0].reshape((n_cells,1))
+    pressure_vec = Y[i,:,:,0].reshape((n_cells))
     u_bias = face_vel_bias[i,:]
     u_face = div.dot(pressure_vec) + u_bias
-    # f = 12
-    # ax.quiver(gridx[::f], gridy[::f], u[::f], v[::f], units='inches')
+    # get cell center velocity from face velocity
+    u_cell, v_cell = PI.get_cell_velocity(u_face)
+    u_mat = np.reshape(u_cell, (nx,nx), order='F')
+    v_mat = np.reshape(v_cell, (nx,nx), order='F')
+    f = 12
+    ax.quiver(gridx[::f], gridy[::f], u_cell[::f], v_cell[::f], units='inches')
     # ax.streamplot(x_mat, y_mat, u_mat, v_mat, linewidth=1.0, color='w')
-    # ax.quiver(gridx, gridy, u, v, units='width')
     ax.set_ybound([0,nx])
     ax.set_xbound([0,nx])
     ax.set_aspect('equal', 'box')
