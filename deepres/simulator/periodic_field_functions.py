@@ -120,7 +120,7 @@ class PeriodicPerturbations(object):
             col.append(dwn)
             data.append(-trans / A)
             face_vel_fix_grad[face] = trans*(d*dp/l)/A
-        face_vel_operator = coo_matrix((data, (row, col)), shape=(grid.nr_t, grid.nr_p)).tocsc()
+        face_vel_operator = coo_matrix((data, (row, col)), shape=(grid.nr_t, grid.nr_p))
         return face_vel_operator, face_vel_fix_grad
 
     def get_cell_velocity(self):
