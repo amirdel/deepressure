@@ -8,7 +8,7 @@ class Config():
     lr = 0.0001
     n_epochs =10
     kernel_size = 11
-    batch_size = 20
+    batch_size = 5
     n_filters = 8
     dropout = 0.2
     nfaces = 100
@@ -65,17 +65,13 @@ class TestModel(Model):
                 indices = np.concatenate((indices, indices_batch))
                 values = np.concatenate((values, U_face_operator_batch[i].data))
 
-        shape = np.array([U_face_operator.shape[0], config.nfaces,config.nx*config.nx], dtype=np.int64)
+        shape = np.array([n_batch, config.nfaces,config.nx*config.nx], dtype=np.int64)
         indices = indices.astype(int)
-        print(indices.shape)
-        print(indices[0])
-        print(values.shape)
-        print(shape)
         if U_face_batch is not None:
             feed_dict = {
                 self.perm_placeholder: perm_batch,
                 self.U_face_fixed_placeholder: U_face_fixed_batch,
-                self.U_face_operator_placeholder: tf.SparseTensorValue(indices,values,shape),
+                self.U_face_operator_placeholder: (indices,values,shape),
                 self.U_face_placeholder: U_face_batch,
                 self.pressure_placeholder: U_pressure_batch,
                 self.is_training: is_training,
@@ -84,7 +80,7 @@ class TestModel(Model):
             feed_dict = {
                 self.perm_placeholder: perm_batch,
                 self.U_face_fixed_placeholder: U_face_fixed_batch,
-                self.U_face_operator_placeholder: tf.SparseTensorValue(indices,values,shape),
+                self.U_face_operator_placeholder: (indices,values,shape),
                 self.is_training: is_training,
             }
         ### END YOUR CODE
@@ -123,7 +119,11 @@ class TestModel(Model):
         pres = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
 
         pres_flat = tf.reshape(pres,[-1,config.nx*config.nx,1])
-        pred = tf.matmul(tf.sparse_tensor_to_dense(self.U_face_operator_placeholder),pres_flat) + self.U_face_fixed_placeholder
+        sparseU_face = tf.sparse_reorder(self.U_face_operator_placeholder)
+        #pred = tf.sparse_tensor_dense_matmul(self.U_face_operator_placeholder,pres_flat) + self.U_face_fixed_placeholder
+        pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
+        #pred = pres_flat
+        pred = tf.reshape(pred,[-1,config.nfaces])
         return pred
 
 
@@ -134,7 +134,12 @@ class TestModel(Model):
         Returns:
             loss: A 0-d tensor (scalar) output
         """
-        loss = tf.nn.l2_loss(pred-self.U_face_placeholder)
+        print(pred)
+        predictions= tf.reshape(pred,[-1,self.config.nfaces])
+
+        actual = tf.reshape(self.U_face_placeholder, [-1, self.config.nfaces])
+
+        loss = tf.nn.l2_loss(predictions-actual)
         return loss
 
     def add_training_op(self, loss):
@@ -163,7 +168,7 @@ class TestModel(Model):
         """
         feed = self.create_feed_dict(perm_batch,U_face_fixed_batch,U_face_operator_batch, True,U_pressure_batch,U_face_batch)
         _, loss = sess.run([self.train_op, self.loss], feed_dict=feed)
-        return loss/(len(inputs_batch))
+        return loss/(len(perm_batch))
 
     def predict_on_batch(self, sess, perm_batch,U_face_fixed_batch,U_face_operator_batch):
         """Make predictions for the provided batch of data
@@ -202,6 +207,7 @@ class TestModel(Model):
         for i in range(0, num_train,config.batch_size):
             batch_train = [ train_examples[i] for i in ind[i:i+config.batch_size]]
             perm_train, U_face_fixed_train, U_face_operator_train, U_pressure_train, U_face_train =  zip(*batch_train)
+
             loss = self.train_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train, U_pressure_train, U_face_train)
             print("Loss for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,loss))
             batchNum += 1
@@ -209,9 +215,9 @@ class TestModel(Model):
         perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
         pred = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
         norms = []
-        for i in range(len(labels_dev)):
-            norms.append(np.sum(np.power(U_face_dev[i,:]-pred[i,:],2)))
-        return np.sum(norms)*0.5/(U_face_dev.shape[0]), pred
+        for i in range(len(U_face_dev)):
+            norms.append(np.sum(np.power(U_face_dev[i]-pred[i,:],2)))
+        return np.sum(norms)*0.5/(len(U_face_dev)), pred
 
 
     def build(self):
@@ -235,17 +241,18 @@ if __name__ == "__main__":
     U_face_fixed = datFile['U_face_fixed']
     config.nx = X.shape[1]
     config.nfaces = U_face_fixed.shape[1]
-    n_train = int(X.shape[0]*0.8)
+
+    n_dev = 5
+    n_train = int(X.shape[0])-n_dev
     n_dev = X.shape[0]-n_train
 
     train_set = []
     for i in range(n_train):
         train_set.append((X[i, :, :, :], U_face[i, :], U_face_operator[i], Y[i, :, :, :], U_face_fixed[i, :]))
 
-    n_dev = X.shape[0]-n_train-1
     dev_set = []
     for i in range(n_dev):
-        dev_set.append((X[i+1+n_train, :, :, :], U_face[i+1+n_train, :], U_face_operator[i+1+n_train], Y[i+1+n_train, :, :, :], U_face_fixed[i+1+n_train, :]))
+        dev_set.append((X[i+n_train, :, :, :], U_face[i+n_train, :], U_face_operator[i+n_train], Y[i+n_train, :, :, :], U_face_fixed[i+n_train, :]))
 
 
     with tf.Graph().as_default():
