@@ -10,6 +10,7 @@
 # LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 # ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+from scipy.sparse import coo_matrix
 import numpy as np
 
 class PeriodicPerturbations(object):
@@ -91,9 +92,9 @@ class PeriodicPerturbations(object):
         :param transRockGeometric:
         :return: A, b s.t np.dot(A, p_fluc) + b = face_velocities
         """
+        row, col, data  = [[] for i in range(3)]
         dp_x, dp_y = self.dp_x, self.dp_y
         grid = self.network
-        face_vel_opretator = np.zeros((grid.nr_t, grid.nr_p))
         face_vel_fix_grad = np.zeros(grid.nr_t)
         lx, ly = grid.lx, grid.ly
         dx, dy, dz = grid.dx, grid.dy, grid.dz
@@ -110,10 +111,17 @@ class PeriodicPerturbations(object):
                 # y face
                 d, dp, l = dy, dp_y, ly
             A = dz * d
-            face_vel_opretator[face, ups] = trans/A
-            face_vel_opretator[face, dwn] = -trans/A
+            # face_vel_opretator[face, ups] = trans/A
+            row.append(face)
+            col.append(ups)
+            data.append(trans/A)
+            # face_vel_opretator[face, dwn] = -trans/A
+            row.append(face)
+            col.append(dwn)
+            data.append(-trans / A)
             face_vel_fix_grad[face] = trans*(d*dp/l)/A
-        return face_vel_opretator, face_vel_fix_grad
+        face_vel_operator = coo_matrix((data, (row, col)), shape=(grid.nr_t, grid.nr_p)).tocsc()
+        return face_vel_operator, face_vel_fix_grad
 
     def get_cell_velocity(self):
         grid = self.network

@@ -36,7 +36,10 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
     # initialize perm matrix and pressure solution (n_cell x n_cell x n_perm_fields)
     X, Y = [np.zeros((n_images, n_cell, n_cell, 1)) for i in range(2)]
     # initialize arrays for saving the faces velocities
-    U_face = np.zeros((n_face, n_images))
+    U_face = np.zeros((n_images, n_face))
+    # initialize the array for saving the face operator and bias
+    face_operator_list = []
+    face_bias_array = np.zeros((n_images, n_face))
     # load the permeability dataframe, each column is one realization
     # this is the file saved by SGEMS (Geostats software)
     perm_frame = pd.read_csv(perm_path, usecols=range(n_images))
@@ -69,6 +72,9 @@ def generate_continuum_realizations(grid_path, save_path, perm_path, dp_x, dp_y,
         # get the operators to calculate face velocity
         U_face_operator, U_face_fixed = PI.face_velocity_operator(grid.transmissibility)
         # save face_velocity
-        U_face[:,i] = np.dot(U_face_operator, LS.sol) + U_face_fixed
+        U_face[i,:] = U_face_operator.dot(LS.sol) + U_face_fixed
+        # save the face operator
+        face_operator_list.append(U_face_operator)
+        face_bias_array[i,:] = U_face_fixed
     # save X, Y, U_face, operators
-    np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=U_face_operator, U_face_fixed=U_face_fixed)
+    np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=face_operator_list, U_face_fixed=face_bias_array)

@@ -62,7 +62,7 @@ class TestPeriodicPerturbations(TestCase):
         face_vel_old = PI.set_face_velocity(LS.sol, grid.transmissibility)
         # get the operator and reconstruct the velocity
         face_vel_opretator, face_vel_fix_grad = PI.face_velocity_operator(grid.transmissibility)
-        face_vel_new = np.dot(face_vel_opretator, LS.sol) + face_vel_fix_grad
+        face_vel_new = face_vel_opretator.dot(LS.sol) + face_vel_fix_grad
         # print(np.max(np.abs(face_vel_new-face_vel_old)))
         np.testing.assert_almost_equal(face_vel_new, face_vel_old, decimal=10)
 
