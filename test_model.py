@@ -9,7 +9,7 @@ class Config():
     n_epochs =10
     kernel_size = 3
     batch_size = 2
-    n_filters = 8
+    n_filters = 16
     dropout = 0.2
     nfaces = 100
 
@@ -93,37 +93,37 @@ class TestModel(Model):
         """
         config = self.config
 
-        conv1 = tf.layers.conv2d(inputs=self.perm_placeholder, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.tanh)
+        conv1 = tf.layers.conv2d(inputs=self.perm_placeholder, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         normed_conv1 = tf.layers.batch_normalization(conv1,axis = -1,center = True, scale = True, training = self.is_training,trainable = True)
         dropout_conv1 = tf.layers.dropout(inputs = normed_conv1,rate=config.dropout,training = self.is_training)
 
         conv1_pool1 = tf.layers.max_pooling2d(inputs=dropout_conv1, pool_size=[2,2], strides=2)
-        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.tanh)
+        conv2_pool1 = tf.layers.conv2d(inputs = conv1_pool1, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv2_pool1_upscaled = tf.image.resize_images(conv2_pool1, [config.nx, config.nx])  
 
         conv1_pool2 = tf.layers.max_pooling2d(inputs=conv1_pool1, pool_size=[2,2], strides=2)
-        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.tanh)
+        conv2_pool2 = tf.layers.conv2d(inputs = conv1_pool2, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
         conv2_pool2_upscaled = tf.image.resize_images(conv2_pool2, [config.nx, config.nx])   
 
         conv1_pool3 = tf.layers.max_pooling2d(inputs=conv1_pool2, pool_size=[2,2], strides=2)
-        conv2_pool3 = tf.layers.conv2d(inputs = conv1_pool3, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.tanh)
+        conv2_pool3 = tf.layers.conv2d(inputs = conv1_pool3, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
         conv2_pool3_upscaled = tf.image.resize_images(conv2_pool3, [config.nx, config.nx])   
 
-        conv2 = tf.layers.conv2d(inputs=dropout_conv1, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.tanh)
-        conv3 = tf.layers.conv2d(inputs=conv2, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.tanh)
+        conv2 = tf.layers.conv2d(inputs=dropout_conv1, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size], kernel_initializer=tf.contrib.layers.xavier_initializer(),padding="same",activation=tf.nn.relu)
+        conv3 = tf.layers.conv2d(inputs=conv2, filters=config.n_filters,kernel_size=[config.kernel_size,config.kernel_size],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
 
         weights = tf.get_variable("weights", shape=[4,],initializer=tf.contrib.layers.xavier_initializer())
 
         conv_comb = weights[0]*conv3 + weights[1]*conv2_pool1_upscaled+ weights[2]*conv2_pool2_upscaled + weights[3]*conv2_pool3_upscaled
-        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=config.n_filters,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.tanh)
-        pres = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
+        conv4 = tf.layers.conv2d(inputs=conv_comb, filters=config.n_filters,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        pres = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation = tf.nn.tanh)
 
         pres_flat = tf.reshape(pres,[-1,config.nx*config.nx,1])
         #pred = tf.sparse_tensor_dense_matmul(self.U_face_operator_placeholder,pres_flat) + self.U_face_fixed_placeholder
         pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
         #pred = pres_flat
         pred = tf.reshape(pred,[-1,config.nfaces])
-        return pred
+        return pred, pres
 
 
     def add_loss_op(self, pred):
@@ -179,20 +179,26 @@ class TestModel(Model):
         """
         feed = self.create_feed_dict(perm_batch,U_face_fixed_batch,U_face_operator_batch,False)
         predictions = sess.run(self.pred, feed_dict=feed)
-        return predictions
+        pres = sess.run(self.pres, feed_dict=feed)
+        return predictions, pres
 
     def fit(self,sess,train_set,dev_set):
         best_dev = 1e9
-        best_pred = None
+        best_velocity = None
+        best_pres = None
+
         for epoch in range(self.config.n_epochs):
+            self.epoch_count = epoch
             print ("Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
-            dev_score, pred = self.run_epoch(sess,train_set,dev_set)
+            dev_score, pred , pres= self.run_epoch(sess,train_set,dev_set)
+
             if dev_score < best_dev:
                 best_dev = dev_score
-                best_pred = pred
+                best_velocity = pred
+                best_pres = pres
                 perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev = zip(*dev_set)
-                np.savez("best_pred",best_pred=best_pred,perm=perm_dev,U_face_fixed = U_face_fixed_dev,U_face_operator = U_face_operator_dev,
-                         U_pressure=U_pressure_dev,U_face= U_face_dev)
+                np.savez("best_velocity",best_velocity=best_velocity,best_pres = best_pres,perm=perm_dev,U_face_fixed = U_face_fixed_dev,U_face_operator = U_face_operator_dev,
+                         pressure=U_pressure_dev,U_face= U_face_dev)
                 print("new best norm found {:}".format(best_dev))
 
     def run_epoch(self,sess,train_examples,dev_set):
@@ -202,35 +208,52 @@ class TestModel(Model):
         np.random.shuffle(ind)
         ind.astype(int)
         batchNum = 1
+
+
+        perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
+        pred, pres = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
+        np.savez("inital_pred",best_velocity=pred,best_pres =pres, perm=perm_dev,U_face_fixed = U_face_fixed_dev,U_face_operator = U_face_operator_dev,
+                         pressure=U_pressure_dev,U_face= U_face_dev)
+
         num_batch = int(np.ceil(num_train/config.batch_size))
         for i in range(0, num_train,config.batch_size):
             batch_train = [ train_examples[i] for i in ind[i:i+config.batch_size]]
             perm_train, U_face_fixed_train, U_face_operator_train, U_pressure_train, U_face_train =  zip(*batch_train)
 
             loss = self.train_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train, U_pressure_train, U_face_train)
+            self.recordOutput(loss,batchNum)
+
             print("Loss for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,loss))
             batchNum += 1
 
-        pred_train = self.predict_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train)
-        np.savez("train_pred",pred_train=pred_train,perm=perm_train,U_face_fixed = U_face_fixed_train,U_face_operator = U_face_operator_train,
-                 U_pressure=U_pressure_train,U_face = U_face_train)
+        pred_train ,pres_train= self.predict_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train)
+        np.savez("train_pred",pred_train=pred_train,pres_train=pres_train,perm=perm_train,U_face_fixed = U_face_fixed_train,U_face_operator = U_face_operator_train,
+                 pressure=U_pressure_train,U_face = U_face_train)
 
         perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
-        pred = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
+        pred, pres = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
         norms = []
         for i in range(len(U_face_dev)):
             norms.append(np.sum(np.power(U_face_dev[i]-pred[i,:],2)))
-        return np.sum(norms)*0.5/(len(U_face_dev)), pred
+        return np.sum(norms)*0.5/(len(U_face_dev)), pred, pres
 
+    def recordOutput(self,loss,batchNum):
+        self.loss_history = np.append(self.loss_history,[loss])
+        self.epoch_num = np.append(self.epoch_num,[np.float(self.epoch_count)+np.float(batchNum*self.config.batch_size/np.float(self.config.n_train))])
 
     def build(self):
         self.add_placeholders()
-        self.pred = self.add_prediction_op()
+        self.pred, self.pres = self.add_prediction_op()
         self.loss = self.add_loss_op(self.pred)
         self.train_op = self.add_training_op(self.loss)
+        self.loss_history = np.array([])
+        self.epoch_num = np.array([])
     def __init__(self, config):
         self.config = config
         self.build()
+    def saveLossHistory(self):
+        np.savez("velocity_loss_history",loss_history=self.loss_history,epoch_num = self.epoch_num)
+
 
 if __name__ == "__main__":
     print("Started running")
@@ -239,15 +262,14 @@ if __name__ == "__main__":
     datFile = np.load('temp/data.npz')
     X = datFile['X']
     Y = datFile['Y']
-    U_face = datFile['U_face']
+    U_face = datFile['U_face']/0.1
     U_face_operator = datFile['U_face_operator']
     U_face_fixed = datFile['U_face_fixed']
     config.nx = X.shape[1]
     config.nfaces = U_face_fixed.shape[1]
 
-    n_dev = 5
-    n_train = int(X.shape[0])-n_dev
-    n_dev = X.shape[0]-n_train
+    n_train = 495# int(X.shape[0])-n_dev
+    n_dev = 5#X.shape[0]-n_train
 
     train_set = []
     for i in range(n_train):
@@ -257,6 +279,7 @@ if __name__ == "__main__":
     for i in range(n_dev):
         dev_set.append((X[i+n_train, :, :, :], U_face_fixed[i+n_train, :], U_face_operator[i+n_train], Y[i+n_train, :, :, :], U_face[i+n_train, :]))
 
+    config.n_train = n_train
 
     with tf.Graph().as_default():
         print ("building Model")
@@ -265,3 +288,4 @@ if __name__ == "__main__":
         with tf.Session() as session:
             session.run(init)
             model.fit(session, train_set, dev_set)
+            model.saveLossHistory()

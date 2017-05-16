@@ -18,11 +18,11 @@ grid_path = os.path.join(proj_folder, 'sample_scripts', 'script_files', '100_100
 #X = data['X']
 #Y = data['Y']
 
-datFile =np.load('best_pred.npz')
+datFile =np.load('best_pred_pressure.npz')
 
 X = datFile['perm']
-u_actual = datFile['U_face']
-u_pred = datFile['best_pred']
+pressure_actual = datFile['y_pressure']
+p_pred = datFile['best_pred']
 
 
 with open(grid_path, 'rb') as input:
