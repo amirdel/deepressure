@@ -7,8 +7,8 @@ class Config():
     nx = 100
     lr = 0.0001
     n_epochs =10
-    kernel_size = 11
-    batch_size = 5
+    kernel_size = 3
+    batch_size = 1
     n_filters = 8
     dropout = 0.2
     nfaces = 100
@@ -119,7 +119,6 @@ class TestModel(Model):
         pres = tf.layers.conv2d(inputs=conv4, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
 
         pres_flat = tf.reshape(pres,[-1,config.nx*config.nx,1])
-        sparseU_face = tf.sparse_reorder(self.U_face_operator_placeholder)
         #pred = tf.sparse_tensor_dense_matmul(self.U_face_operator_placeholder,pres_flat) + self.U_face_fixed_placeholder
         pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
         #pred = pres_flat
@@ -192,8 +191,8 @@ class TestModel(Model):
                 best_dev = dev_score
                 best_pred = pred
                 perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev = zip(*dev_set)
-                np.savez("best_pred",best_pred=best_pred,perm_dev=perm_dev,U_face_fixed_dev = U_face_fixed_dev,U_face_operator_dev = U_face_operator_dev,
-                         U_pressure_dev=U_pressure_dev,U_face_dev = U_face_dev)
+                np.savez("best_pred",best_pred=best_pred,perm=perm_dev,U_face_fixed = U_face_fixed_dev,U_face_operator = U_face_operator_dev,
+                         U_pressure=U_pressure_dev,U_face= U_face_dev)
                 print("new best norm found {:}".format(best_dev))
 
     def run_epoch(self,sess,train_examples,dev_set):
@@ -211,6 +210,10 @@ class TestModel(Model):
             loss = self.train_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train, U_pressure_train, U_face_train)
             print("Loss for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,loss))
             batchNum += 1
+
+        pred_train = self.predict_on_batch(sess,perm_train, U_face_fixed_train, U_face_operator_train)
+        np.savez("train_pred",pred_train=pred_train,perm=perm_train,U_face_fixed = U_face_fixed_train,U_face_operator = U_face_operator_train,
+                 U_pressure=U_pressure_train,U_face = U_face_train)
 
         perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
         pred = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
