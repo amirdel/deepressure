@@ -8,7 +8,7 @@ class Config():
     lr = 0.0001
     n_epochs =10
     kernel_size = 3
-    batch_size = 1
+    batch_size = 2
     n_filters = 8
     dropout = 0.2
     nfaces = 100
@@ -251,11 +251,11 @@ if __name__ == "__main__":
 
     train_set = []
     for i in range(n_train):
-        train_set.append((X[i, :, :, :], U_face[i, :], U_face_operator[i], Y[i, :, :, :], U_face_fixed[i, :]))
+        train_set.append((X[i, :, :, :], U_face_fixed[i, :], U_face_operator[i], Y[i, :, :, :], U_face[i, :]))
 
     dev_set = []
     for i in range(n_dev):
-        dev_set.append((X[i+n_train, :, :, :], U_face[i+n_train, :], U_face_operator[i+n_train], Y[i+n_train, :, :, :], U_face_fixed[i+n_train, :]))
+        dev_set.append((X[i+n_train, :, :, :], U_face_fixed[i+n_train, :], U_face_operator[i+n_train], Y[i+n_train, :, :, :], U_face[i+n_train, :]))
 
 
     with tf.Graph().as_default():
