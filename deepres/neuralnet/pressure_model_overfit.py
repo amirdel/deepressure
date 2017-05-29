@@ -211,7 +211,7 @@ class Config():
     nx = 64
     lr = 1e-3
     kernel_size= 9
-    n_epochs =100
+    n_epochs =200
     batch_size = 30
     n_filters = 16
     dropout = 0.2
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
     # datFile = np.load('temp/data.npz')
     # datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_500.npz')
-    datFile = np.load('/home/amirhossein/projects/deeppressure/temp/data_64_purt.npz')
+    datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_64_purt.npz')
     X = datFile['X']
     Y_in = datFile['Y']
     ## normalize
