@@ -224,7 +224,8 @@ if __name__ == "__main__":
 
     # datFile = np.load('temp/data.npz')
     # datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_500.npz')
-    datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_64_purt.npz')
+    # datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_64_purt.npz')
+    datFile = np.load('/home/amirhossein/projects/deeppressure/data/data_64_nonperiodic.npz')
     X = datFile['X']
     Y_in = datFile['Y']
     ## normalize
