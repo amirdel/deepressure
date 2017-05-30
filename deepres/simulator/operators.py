@@ -11,10 +11,6 @@ def face_velocity_operator_nonperiodic(grid):
     for face in range(grid.nr_t):
         # find adjacent cells
         adj_cells = face_adj_list[face]
-        # if the face has only one adjacent cell then continue:
-        if len(set(adj_cells)) == 1:
-            b_counter += 1
-            continue
         trans = transRockGeometric[face]
         ups, dwn = adj_cells[0], adj_cells[1]
         if ~y_faces[face]:
