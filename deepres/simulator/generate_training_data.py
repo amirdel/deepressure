@@ -15,6 +15,7 @@ import pickle as pickle
 import pandas as pd
 from deepres.simulator.linear_system_solver import LinearSystemStandard
 from deepres.simulator.periodic_field_functions import PeriodicPerturbations
+from deepres.simulator.operators import face_velocity_operator_nonperiodic
 
 def generate_continuum_realizations_periodic(grid_path, save_path, perm_path, dp_x, dp_y, n_images, print_every=50):
     """
@@ -133,10 +134,10 @@ def generate_continuum_realizations_nonperiodic(grid_path, save_path, perm_path,
         grid.pressure = LS.sol
         # get the operators to calculate face velocity
         # U_face_operator = face_velocity_operator(grid.transmissibility)
-        U_face_operator = None
+        U_face_operator = face_velocity_operator_nonperiodic(grid)
         # save face_velocity
-        # U_face[i,:] = U_face_operator.dot(LS.sol)
-        U_face[i, :] = np.zeros(n_face)
+        U_face[i,:] = U_face_operator.dot(LS.sol)
+        # U_face[i, :] = np.zeros(n_face)
         # save the face operator
         face_operator_list.append(U_face_operator)
     # save X, Y, U_face, operators
