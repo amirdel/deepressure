@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from model import Model
 import os as os
+import matplotlib.pyplot as plt
 
 class NNModel(Model):
     def add_placeholders(self):
@@ -115,25 +116,18 @@ class NNModel(Model):
 
         pres_flat = tf.reshape(pres,[-1,config.nx*config.nx,1])*config.max_val + config.mean_val
         #pred = tf.sparse_tensor_dense_matmul(self.U_face_operator_placeholder,pres_flat) + self.U_face_fixed_placeholder
-        pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
-        # # testing if we can get the velocity that was saved in generating data
-        # input_p_flat = tf.reshape(self.pressure_placeholder, [-1,config.nx*config.nx,1])
-        # u_test = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),input_p_flat)
-        # u_test_reshaped = tf.reshape(u_test,[-1,config.nfaces])
-        # u_actual_reshaped = tf.reshape(self.U_face_placeholder, [-1, self.config.nfaces])
-        # u_diff = u_test_reshaped - u_actual_reshaped
-        #pred = pres_flat
-        pred = tf.reshape(pred,[-1,config.nfaces])
-        return pred, pres
+        v_pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
+        v_pred = tf.reshape(v_pred,[-1,config.nfaces])
+        return v_pred, pres
 
-    def test_matrix_op(self, sess):
+    def test_matrix_op(self, sess, input_set):
         # pass the dev set and calculate the face velocity from the input pressure and operator
         input_p_flat = tf.reshape(self.pressure_placeholder, [-1,config.nx*config.nx,1])
         u_test = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),input_p_flat)
         u_test_reshaped = tf.reshape(u_test,[-1,config.nfaces])
         u_actual_reshaped = tf.reshape(self.U_face_placeholder, [-1, self.config.nfaces])
         u_diff = u_test_reshaped - u_actual_reshaped
-        perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
+        perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*input_set)
         feed = self.create_feed_dict(perm_dev, U_face_fixed_dev, U_face_operator_dev, True, U_pressure_dev, U_face_dev)
         diff = sess.run(u_diff, feed_dict=feed)
         return diff
@@ -145,9 +139,11 @@ class NNModel(Model):
         Returns:
             loss: A 0-d tensor (scalar) output
         """
+        v_weight = config.weight
         pred_velocity= tf.reshape(pred_velocity,[-1,self.config.nfaces])
         actual = tf.reshape(self.U_face_placeholder, [-1, self.config.nfaces])
-        loss = tf.nn.l2_loss(pred_pres-self.pressure_placeholder) +config.weight*tf.nn.l2_loss(pred_velocity-actual) #
+        loss = (1.0 - v_weight) * tf.nn.l2_loss(pred_pres-self.pressure_placeholder) + \
+               v_weight * tf.nn.l2_loss(pred_velocity-actual) #
         return loss
 
     def add_training_op(self, loss):
@@ -253,33 +249,39 @@ class NNModel(Model):
         return np.sum(norms)*0.5/(len(U_face_dev)), pred, pres
 
     def recordOutput(self,loss,batchNum):
-        self.loss_history = np.append(self.loss_history,[loss])
-        self.epoch_num = np.append(self.epoch_num,[np.float(self.epoch_count)+np.float(batchNum*self.config.batch_size/np.float(self.config.n_train))])
+        self.loss_history.append(loss)
+        self.iter_number.append(float(self.epoch_count)+np.float(batchNum*self.config.batch_size/np.float(self.config.n_train)))
+
+    def save_loss_history(self, save_folder):
+        # np.savez(os.path.join(save_folder, 'loss'), loss=self.loss_history, iter_number=self.iter_number)
+        fig, ax = plt.subplots(1,1)
+        ax.plot(self.iter_number, self.loss_history)
+        # ax.plot(self.loss_history)
+        fig.savefig(os.path.join(save_folder, 'loss.png'), format='png')
 
     def build(self):
         self.add_placeholders()
         self.pred, self.pres = self.add_prediction_op()
         self.loss = self.add_loss_op(self.pred,self.pres)
         self.train_op = self.add_training_op(self.loss)
-        self.loss_history = np.array([])
-        self.epoch_num = np.array([])
+        self.loss_history = []
+        self.iter_number = []
+
     def __init__(self, config):
         self.config = config
         self.build()
     def saveLossHistory(self):
-        np.savez("velocity_loss_history_both",loss_history=self.loss_history,epoch_num = self.epoch_num)
+        np.savez("velocity_loss_history_both",loss_history=self.loss_history,epoch_num = self.iter_number)
 
 from os.path import dirname
 class Config():
-    nx = 100
-    lr = 0.001
-    n_epochs = 1
+    weight = 0.5
+    lr = 1e-3
+    n_epochs = 100
     kernel_size = 9
-    batch_size = 2
-    n_filters = 64
+    batch_size = 30
+    n_filters = 16
     dropout = 0.2
-    nfaces = 100
-    weight = 0
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
     model_save_dir = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
 
@@ -291,7 +293,9 @@ if __name__ == "__main__":
     datFile = np.load(os.path.join(proj_folder,'data','data_64_nonperiodic.npz'))
     X = datFile['X']
     Y_in = datFile['Y']
-    U_face = datFile['U_face']/0.1
+    # TODO: normalization removed
+    # U_face = datFile['U_face']/0.1
+    U_face = datFile['U_face']
     U_face_operator = datFile['U_face_operator']
     U_face_fixed = datFile['U_face_fixed']
     config.nx = X.shape[1]
@@ -299,7 +303,9 @@ if __name__ == "__main__":
 
     config.mean_val = np.mean(Y_in)
     config.max_val = np.max(np.fabs(Y_in-config.mean_val))*(4/3)
-    Y = (Y_in-config.mean_val)/config.max_val
+    # TODO: normalization removed
+    # Y = (Y_in-config.mean_val)/config.max_val
+    Y = Y_in
     n_train = 2
     n_dev = 1#X.shape[0]-n_train
 
@@ -319,45 +325,46 @@ if __name__ == "__main__":
         init = tf.global_variables_initializer()
         with tf.Session() as session:
             session.run(init)
-            diff = model.test_matrix_op(session)
-            print(np.linalg.norm(diff))
-            # model.fit(session, train_set, dev_set)
-            # model.saveLossHistory()
+            diff = model.test_matrix_op(session, train_set)
+            print('error for reproducing face velocity: ', np.linalg.norm(diff))
+            model.fit(session, train_set, dev_set)
+            model.save_loss_history(os.path.join(proj_folder, 'temp', 'both_overfit', 'pics'))
+
 
     #################################################################################################
-    # # plot the results
-    # import numpy as np
-    # import os as os
-    # import pickle as pickle
-    # from deepres.plotting.side_by_side import side_by_side
-    # from os.path import dirname
-    #
-    # print('comparing the pressure solutions...')
-    # proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
-    # # path to save the training data file
-    # save_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'pics')
-    # if not os.path.exists(save_folder):
-    #     os.mkdir(save_folder)
-    # # grid_path = os.path.join(proj_folder, 'sample_scripts', 'script_files', '100_100_periodic.pkl')
-    # grid_path = os.path.join(proj_folder, 'data', 'grids', '64_64_periodic.pkl')
-    # model_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
-    # # load model
-    # modelfile = np.load(os.path.join(model_folder, 'latest_train_model.npz'))
-    #
-    # X = modelfile['perm']
-    # pressure_actual = modelfile['pressure']
-    # p_pred = modelfile['pres_train']
-    #
-    # print('shape of model: ', p_pred.shape)
-    # with open(grid_path, 'rb') as input:
-    #     grid = pickle.load(input)
-    # dx, dy = grid.dx, grid.dy
-    # nx = grid.m
-    # gridx = grid.pores.x
-    # gridy = grid.pores.y
-    # x_mat = np.reshape(gridx, (nx, nx))
-    # y_mat = np.reshape(gridy, (nx, nx))
-    #
-    # for i in range(2):
-    #     save_path = os.path.join(save_folder, 'p_last_epoch{:}.png'.format(i))
-    #     side_by_side(x_mat, y_mat, p_pred[i, :, :, 0], pressure_actual[i, :, :, 0], save_path)
+    # plot the results
+    import numpy as np
+    import os as os
+    import pickle as pickle
+    from deepres.plotting.side_by_side import side_by_side
+    from os.path import dirname
+
+    print('comparing the pressure solutions...')
+    proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
+    # path to save the training data file
+    save_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'pics')
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+    # grid_path = os.path.join(proj_folder, 'sample_scripts', 'script_files', '100_100_periodic.pkl')
+    grid_path = os.path.join(proj_folder, 'data', 'grids', '64_64_periodic.pkl')
+    model_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
+    # load model
+    modelfile = np.load(os.path.join(model_folder, 'latest_train_model.npz'))
+
+    X = modelfile['perm']
+    pressure_actual = modelfile['pressure']
+    p_pred = modelfile['pres_train']
+
+    print('shape of model: ', p_pred.shape)
+    with open(grid_path, 'rb') as input:
+        grid = pickle.load(input)
+    dx, dy = grid.dx, grid.dy
+    nx = grid.m
+    gridx = grid.pores.x
+    gridy = grid.pores.y
+    x_mat = np.reshape(gridx, (nx, nx))
+    y_mat = np.reshape(gridy, (nx, nx))
+
+    for i in range(2):
+        save_path = os.path.join(save_folder, 'p_last_epoch{:}.png'.format(i))
+        side_by_side(x_mat, y_mat, p_pred[i, :, :, 0], pressure_actual[i, :, :, 0], save_path)
