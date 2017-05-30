@@ -15,14 +15,14 @@ from deepres.simulator.generate_training_data import generate_continuum_realizat
 
 proj_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # path to save the training data file
-save_folder = os.path.join(proj_folder, 'temp')
+save_folder = os.path.join(proj_folder, 'data')
 if not os.path.exists(save_folder):
     os.mkdir(save_folder)
-save_path = os.path.join(save_folder, 'data_nonperiodic.npz')
+save_path = os.path.join(save_folder, 'data_64_nonperiodic.npz')
 # path to grid object
-grid_path = os.path.join(proj_folder, 'sample_scripts', 'script_files', '100_100_periodic.pkl')
+grid_path = os.path.join(proj_folder, 'data', 'grids', '64_64_nonperiodic.pkl')
 # path to the permeability realizations
-perm_path = os.path.join(proj_folder, 'data', 's100_gauss01_512_5.csv')
+perm_path = os.path.join(proj_folder, 'data', 's64_6_1000.csv')
 # mean pressure in the x directions and the y direction
 dp_x, dp_y = 1.0, 0.0
 # number of training images to create
