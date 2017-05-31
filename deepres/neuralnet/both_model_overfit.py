@@ -116,7 +116,8 @@ class NNModel(Model):
 
         pres_flat = tf.reshape(pres,[-1,config.nx*config.nx,1])*config.max_val + config.mean_val
         #pred = tf.sparse_tensor_dense_matmul(self.U_face_operator_placeholder,pres_flat) + self.U_face_fixed_placeholder
-        v_pred = tf.matmul(tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder)),pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
+        dense_operator = tf.sparse_tensor_to_dense(tf.sparse_reorder(self.U_face_operator_placeholder))
+        v_pred = tf.matmul(dense_operator, pres_flat) + tf.reshape(self.U_face_fixed_placeholder,[-1,config.nfaces,1])
         v_pred = tf.reshape(v_pred,[-1,config.nfaces])
         return v_pred, pres
 
@@ -275,12 +276,12 @@ class NNModel(Model):
 
 from os.path import dirname
 class Config():
-    weight = 0.5
+    weight = 1.0
     lr = 1e-3
     n_epochs = 100
-    kernel_size = 9
+    kernel_size = 6
     batch_size = 30
-    n_filters = 16
+    n_filters = 10
     dropout = 0.2
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
     model_save_dir = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
@@ -300,9 +301,11 @@ if __name__ == "__main__":
     U_face_fixed = datFile['U_face_fixed']
     config.nx = X.shape[1]
     config.nfaces = U_face_fixed.shape[1]
-
-    config.mean_val = np.mean(Y_in)
-    config.max_val = np.max(np.fabs(Y_in-config.mean_val))*(4/3)
+    # TODO: normalization removed
+    # config.mean_val = np.mean(Y_in)
+    # config.max_val = np.max(np.fabs(Y_in-config.mean_val))*(4/3)
+    config.mean_val = 0.0
+    config.max_val = 1.0
     # TODO: normalization removed
     # Y = (Y_in-config.mean_val)/config.max_val
     Y = Y_in
