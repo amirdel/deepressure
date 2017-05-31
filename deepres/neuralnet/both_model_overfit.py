@@ -143,8 +143,8 @@ class NNModel(Model):
         v_weight = config.weight
         pred_velocity= tf.reshape(pred_velocity,[-1,self.config.nfaces])
         actual = tf.reshape(self.U_face_placeholder, [-1, self.config.nfaces])
-        loss = (1.0 - v_weight) * tf.nn.l2_loss(pred_pres-self.pressure_placeholder) + \
-               v_weight * tf.nn.l2_loss(pred_velocity-actual) #
+        loss = tf.nn.l2_loss(pred_pres-self.pressure_placeholder) + \
+               v_weight * tf.nn.l2_loss(pred_velocity) #
         return loss
 
     def add_training_op(self, loss):
@@ -276,9 +276,9 @@ class NNModel(Model):
 
 from os.path import dirname
 class Config():
-    weight = 1.0
+    weight = 0.5
     lr = 1e-3
-    n_epochs = 100
+    n_epochs = 1000
     kernel_size = 6
     batch_size = 30
     n_filters = 10
@@ -294,21 +294,21 @@ if __name__ == "__main__":
     datFile = np.load(os.path.join(proj_folder,'data','data_64_nonperiodic.npz'))
     X = datFile['X']
     Y_in = datFile['Y']
-    # TODO: normalization removed
-    # U_face = datFile['U_face']/0.1
-    U_face = datFile['U_face']
-    U_face_operator = datFile['U_face_operator']
+    U_face = datFile['U_divergence']
+    # U_face_operator = datFile['U_face_operator']
+    U_face_operator = datFile['Div_u_operator']
     U_face_fixed = datFile['U_face_fixed']
     config.nx = X.shape[1]
-    config.nfaces = U_face_fixed.shape[1]
+    # TODO: config.nfaces is actually ncells
+    config.nfaces = config.nx**2
     # TODO: normalization removed
-    # config.mean_val = np.mean(Y_in)
-    # config.max_val = np.max(np.fabs(Y_in-config.mean_val))*(4/3)
-    config.mean_val = 0.0
-    config.max_val = 1.0
+    config.mean_val = np.mean(Y_in)
+    config.max_val = np.max(np.fabs(Y_in-config.mean_val))*(4/3)
+    # config.mean_val = 0.0
+    # config.max_val = 1.0
     # TODO: normalization removed
-    # Y = (Y_in-config.mean_val)/config.max_val
-    Y = Y_in
+    Y = (Y_in-config.mean_val)/config.max_val
+    # Y = Y_in
     n_train = 2
     n_dev = 1#X.shape[0]-n_train
 

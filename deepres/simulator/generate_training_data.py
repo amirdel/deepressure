@@ -15,7 +15,7 @@ import pickle as pickle
 import pandas as pd
 from deepres.simulator.linear_system_solver import LinearSystemStandard
 from deepres.simulator.periodic_field_functions import PeriodicPerturbations
-from deepres.simulator.operators import face_velocity_operator_nonperiodic
+from deepres.simulator.operators import face_velocity_operator_nonperiodic, divergence_operator
 
 def generate_continuum_realizations_periodic(grid_path, save_path, perm_path, dp_x, dp_y, n_images, print_every=50):
     """
@@ -79,7 +79,7 @@ def generate_continuum_realizations_periodic(grid_path, save_path, perm_path, dp
     # save X, Y, U_face, operators
     np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=face_operator_list, U_face_fixed=face_bias_array)
 
-
+from scipy.sparse import coo_matrix
 def generate_continuum_realizations_nonperiodic(grid_path, save_path, perm_path, n_images, print_every=50):
     """
     This function will create the training data for our model
@@ -95,6 +95,8 @@ def generate_continuum_realizations_nonperiodic(grid_path, save_path, perm_path,
     # loading the grid
     with open(grid_path, 'rb') as input:
         grid = pickle.load(input)
+    # generate the divergence operator for this grid
+    div_operator = divergence_operator(grid)
     n_cell = grid.m
     n_face = grid.nr_t
     # find the indices for the left and right boundary
@@ -106,9 +108,13 @@ def generate_continuum_realizations_nonperiodic(grid_path, save_path, perm_path,
     X, Y = [np.zeros((n_images, n_cell, n_cell, 1)) for i in range(2)]
     # initialize arrays for saving the faces velocities
     U_face = np.zeros((n_images, n_face))
+    # initialize divergence array
+    U_div_array = np.zeros((n_images, n_cell*n_cell))
     # initialize the array for saving the face operator and bias
     face_operator_list = []
-    face_bias_array = np.zeros((n_images, n_face))
+    Div_u_operator_list = []
+    # face_biass_array will just be zeros, kept here to be compatible with the periodic case
+    face_bias_array = np.zeros((n_images, n_cell*n_cell))
     # load the permeability dataframe, each column is one realization
     # this is the file saved by SGEMS (Geostats software)
     perm_frame = pd.read_csv(perm_path, usecols=range(n_images))
@@ -133,12 +139,17 @@ def generate_continuum_realizations_nonperiodic(grid_path, save_path, perm_path,
         Y[i, :, :, 0] = np.copy(np.reshape(LS.sol, (n_cell, n_cell)))
         grid.pressure = LS.sol
         # get the operators to calculate face velocity
-        # U_face_operator = face_velocity_operator(grid.transmissibility)
         U_face_operator = face_velocity_operator_nonperiodic(grid)
+        # Div* U_face
+        Div_u_operator = coo_matrix(div_operator * U_face_operator)
+        Div_u_operator_list.append(Div_u_operator)
         # save face_velocity
         U_face[i,:] = U_face_operator.dot(LS.sol)
-        # U_face[i, :] = np.zeros(n_face)
+        # velocity divergence
+        U_div_array[i,:] = Div_u_operator.dot(LS.sol)
         # save the face operator
         face_operator_list.append(U_face_operator)
     # save X, Y, U_face, operators
-    np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=face_operator_list)
+    np.savez(save_path, X=X, Y=Y, U_face=U_face, U_face_operator=face_operator_list,
+             Div_operator=div_operator, Div_u_operator=Div_u_operator_list, U_face_fixed=face_bias_array,
+             U_divergence=U_div_array)
