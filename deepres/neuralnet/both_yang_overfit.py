@@ -257,12 +257,35 @@ class NNModel(Model):
         np.savez(latest_file,pred_train=pred_train,pres_train=pres_train,perm=perm_train,U_face_fixed = U_face_fixed_train,U_face_operator = U_face_operator_train,
                  pressure=U_pressure_train,U_face = U_face_train)
 
-        perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
-        pred, pres = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
+        print("------Evaluating on dev set------")
+        #batch over dev
+        num_dev = len(dev_set)
+        batchNum = 1
+        ind_dev = np.arange(num_dev)
+        num_batch = int(np.ceil(num_dev/config.batch_size))
         norms = []
-        for i in range(len(U_face_dev)):
-            norms.append(np.sum(np.power(U_face_dev[i]-pred[i,:],2)))
-        return np.sum(norms)*0.5/(len(U_face_dev)), pred, pres
+        predAll = np.zeros((num_dev,self.config.nfaces))
+        presAll = np.zeros((num_dev,self.config.nx,self.config.nx,1))
+        for devInd in range(0, num_dev,config.batch_size):
+            batch_dev = [ dev_set[i] for i in ind_dev[devInd:devInd+config.batch_size]]
+            perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*batch_dev)
+            pred, pres = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
+            # calculate norm of pressure
+            for j in range(len(U_pressure_dev)):
+                norms.append(np.sum(np.power(U_pressure_dev[j]-pres[j,:,:,:],2)))
+            presAll[devInd:devInd+config.batch_size] = pres
+            predAll[devInd:devInd+config.batch_size] = pred
+            averageNorm = np.sum(norms)*0.5/len(norms)
+            print("Norm for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,averageNorm))
+            batchNum += 1
+
+        return np.sum(norms)*0.5/len(dev_set), predAll, presAll
+        # perm_dev, U_face_fixed_dev, U_face_operator_dev, U_pressure_dev, U_face_dev =  zip(*dev_set)
+        # pred, pres = self.predict_on_batch(sess,perm_dev, U_face_fixed_dev, U_face_operator_dev)
+        # norms = []
+        # for i in range(len(U_face_dev)):
+        #     norms.append(np.sum(np.power(U_face_dev[i]-pred[i,:],2)))
+        # return np.sum(norms)*0.5/(len(U_face_dev)), pred, pres
 
     def recordOutput(self,loss,batchNum):
         self.loss_history.append(loss)
@@ -295,11 +318,12 @@ class Config():
     lr = 1e-3
     n_epochs = 1000
     kernel_size = 6
-    batch_size = 30
+    batch_size = 2
     n_filters = 10
     dropout = 0.2
+    model_name = 'yang_model'
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
-    model_save_dir = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
+    model_save_dir = os.path.join(proj_folder, 'temp', model_name, 'models')
 
 if __name__ == "__main__":
     print("Started running")
@@ -307,6 +331,18 @@ if __name__ == "__main__":
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
     print(proj_folder)
     datFile = np.load(os.path.join(proj_folder,'data','data_64_nonperiodic.npz'))
+
+
+    print("Making folders")
+    proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
+    # path to save the training data file
+    save_folder = os.path.join(proj_folder, 'temp', config.model_name, 'pics')
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    model_folder = os.path.join(proj_folder, 'temp', config.model_name, 'models')
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+
     X = datFile['X']
     Y_in = datFile['Y']
     U_face = datFile['U_divergence']
@@ -324,8 +360,8 @@ if __name__ == "__main__":
     # TODO: normalization removed
     Y = (Y_in-config.mean_val)/config.max_val
     # Y = Y_in
-    n_train = 8
-    n_dev = 1#X.shape[0]-n_train
+    n_train = 4
+    n_dev = 4#X.shape[0]-n_train
 
     train_set = []
     for i in range(n_train):
@@ -346,7 +382,7 @@ if __name__ == "__main__":
             diff = model.test_matrix_op(session, train_set)
             print('error for reproducing face velocity: ', np.linalg.norm(diff))
             model.fit(session, train_set, dev_set)
-            model.save_loss_history(os.path.join(proj_folder, 'temp', 'both_overfit', 'pics'))
+            model.save_loss_history(os.path.join(proj_folder, 'temp', config.model_name, 'pics'))
 
 
     #################################################################################################
@@ -358,14 +394,8 @@ if __name__ == "__main__":
     from os.path import dirname
 
     print('comparing the pressure solutions...')
-    proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
-    # path to save the training data file
-    save_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'pics')
-    if not os.path.exists(save_folder):
-        os.mkdir(save_folder)
     # grid_path = os.path.join(proj_folder, 'sample_scripts', 'script_files', '100_100_periodic.pkl')
     grid_path = os.path.join(proj_folder, 'data', 'grids', '64_64_periodic.pkl')
-    model_folder = os.path.join(proj_folder, 'temp', 'both_overfit', 'models')
     # load model
     modelfile = np.load(os.path.join(model_folder, 'latest_train_model.npz'))
 
