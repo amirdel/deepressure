@@ -73,74 +73,59 @@ class NNModel(Model):
         ### END YOUR CODE
         return feed_dict
 
+    def inception(self, layer_input):
+        relu = tf.nn.relu
+        conv3a_2 = tf.layers.conv2d(layer_input, filters=128, kernel_size=[1, 1], kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same", activation=relu)
+        conv3a_upscaled_2 = tf.image.resize_images(conv3a_2, [config.nx, config.nx])
+        conv3b_2 = tf.layers.conv2d(layer_input, filters=96, kernel_size=[1, 1], kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same", activation=relu)
+        conv4b_2 = tf.layers.conv2d(conv3b_2 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=relu)
+        conv4b_upscaled_2 = tf.image.resize_images(conv4b_2, [config.nx, config.nx])
+        conv3c_2 = tf.layers.conv2d(layer_input, filters=96, kernel_size=[1, 1], kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same", activation=relu)
+        conv4c_2 = tf.layers.conv2d(conv3c_2 ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=relu)
+        conv4c_upscaled_2 = tf.image.resize_images(conv4c_2, [config.nx, config.nx])
+        pool3_2 = tf.layers.max_pooling2d(inputs=layer_input, pool_size=[3, 3], strides=1, padding ='same')
+        pool3_conv1_2 = tf.layers.conv2d(pool3_2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=relu)
+        conv2_pool3_upscaled_2 = tf.image.resize_images(pool3_conv1_2, [config.nx, config.nx])
+        layer_output = relu(tf.concat([layer_input, conv3a_upscaled_2, conv4b_upscaled_2, conv4c_upscaled_2, conv2_pool3_upscaled_2], axis=3))
+        return layer_output
+
     def add_prediction_op(self):
         """Implements the core of the model that transforms a batch of input data into predictions.
         Returns:
             pred: A tensor of shape (batch_size, n_classes)
         """
-        activation = tf.nn.tanh
+        relu = tf.nn.relu
         xavier = tf.contrib.layers.xavier_initializer()
         config = self.config
 
-        conv1_7x7_s2 = tf.layers.conv2d(self.perm_placeholder, filters=64,kernel_size=[7,7],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv1_7x7_s2 = tf.layers.conv2d(self.perm_placeholder, filters=64,kernel_size=[7,7],kernel_initializer=xavier, padding="same",activation=relu)
         pool1_3x3_s2 = tf.layers.max_pooling2d(inputs=conv1_7x7_s2, pool_size=[3,3], strides=2, padding = 'same')
         pool1_norm1 = tf.nn.lrn(pool1_3x3_s2)
-        conv2_3x3_reduce = tf.layers.conv2d(pool1_norm1, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv2_3x3 = tf.layers.conv2d(conv2_3x3_reduce ,filters=96,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv2_3x3_reduce = tf.layers.conv2d(pool1_norm1, filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
+        conv2_3x3 = tf.layers.conv2d(conv2_3x3_reduce ,filters=96,kernel_size=[3,3],kernel_initializer=xavier, padding="same",activation=relu)
         conv2_norm2 = tf.nn.lrn(conv2_3x3)
         pool2_3x3_s2 = tf.layers.max_pooling2d(inputs=conv2_norm2, pool_size=[3,3], strides=2, padding = 'same')
         
-        conv3a = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv3a_upscaled = tf.image.resize_images(conv3a, [config.nx, config.nx])         
-
-        conv3b = tf.layers.conv2d(pool2_3x3_s2 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4b = tf.layers.conv2d(conv3b ,filters=96,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4b_upscaled = tf.image.resize_images(conv4b, [config.nx, config.nx])         
-
-        conv3c = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4c = tf.layers.conv2d(conv3c ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4c_upscaled = tf.image.resize_images(conv4c, [config.nx, config.nx])          
+        conv3a = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
+        conv3a_upscaled = tf.image.resize_images(conv3a, [config.nx, config.nx])
+        conv3b = tf.layers.conv2d(pool2_3x3_s2 ,filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
+        conv4b = tf.layers.conv2d(conv3b ,filters=96,kernel_size=[3,3],kernel_initializer=xavier, padding="same",activation=relu)
+        conv4b_upscaled = tf.image.resize_images(conv4b, [config.nx, config.nx])
+        conv3c = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
+        conv4c = tf.layers.conv2d(conv3c ,filters=96,kernel_size=[5,5],kernel_initializer=xavier, padding="same",activation=relu)
+        conv4c_upscaled = tf.image.resize_images(conv4c, [config.nx, config.nx])
         pool3 = tf.layers.max_pooling2d(inputs=pool2_3x3_s2, pool_size=[3,3], strides=1, padding = 'same')
-        pool3_conv1 = tf.layers.conv2d(pool3, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv2_pool3_upscaled = tf.image.resize_images(pool3_conv1, [config.nx, config.nx])   
+        pool3_conv1 = tf.layers.conv2d(pool3, filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
+        conv2_pool3_upscaled = tf.image.resize_images(pool3_conv1, [config.nx, config.nx])
+        inception1 = relu(tf.concat([conv1_7x7_s2,conv3a_upscaled,conv4b_upscaled,conv4c_upscaled,conv2_pool3_upscaled], axis=3))
 
-        inception1 = tf.nn.relu(tf.concat([conv1_7x7_s2,conv3a_upscaled,conv4b_upscaled,conv4c_upscaled,conv2_pool3_upscaled], axis=3))
+        inception2 = self.inception(inception1)
+        last_inception = self.inception(inception2)
 
-        # conv3a_2 = tf.layers.conv2d(inception1, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv3a_upscaled_2 = tf.image.resize_images(conv3a_2, [config.nx, config.nx])         
+        inception_final_conv1 = tf.layers.conv2d(last_inception ,filters=128,kernel_size=[3,3],kernel_initializer=xavier, padding="same",activation=relu)
+        inception_final_conv2 = tf.layers.conv2d(inception_final_conv1 ,filters=192,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
 
-        # conv3b_2 = tf.layers.conv2d(inception1 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4b_2 = tf.layers.conv2d(conv3b_2 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4b_upscaled_2 = tf.image.resize_images(conv4b_2, [config.nx, config.nx])         
-
-        # conv3c_2 = tf.layers.conv2d(inception1, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4c_2 = tf.layers.conv2d(conv3c_2 ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4c_upscaled_2 = tf.image.resize_images(conv4c_2, [config.nx, config.nx])          
-        # pool3_2 = tf.layers.max_pooling2d(inputs=inception1, pool_size=[3,3], strides=1, padding = 'same')
-        # pool3_conv1_2 = tf.layers.conv2d(pool3_2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv2_pool3_upscaled_2 = tf.image.resize_images(pool3_conv1_2, [config.nx, config.nx])   
-        # inception2 = tf.nn.relu(tf.concat([inception1,conv3a_upscaled_2,conv4b_upscaled_2,conv4c_upscaled_2,conv2_pool3_upscaled_2], axis=3))
-
-        # conv3a_3 = tf.layers.conv2d(inception2, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv3a_upscaled_3 = tf.image.resize_images(conv3a_3, [config.nx, config.nx])         
-
-        # conv3b_3 = tf.layers.conv2d(inception2 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4b_3 = tf.layers.conv2d(conv3b_3 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4b_upscaled_3 = tf.image.resize_images(conv4b_3, [config.nx, config.nx])         
-
-        # conv3c_3 = tf.layers.conv2d(inception2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4c_3 = tf.layers.conv2d(conv3c_3 ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv4c_upscaled_3 = tf.image.resize_images(conv4c_3, [config.nx, config.nx])          
-        # pool3_3 = tf.layers.max_pooling2d(inputs=inception2, pool_size=[3,3], strides=1, padding = 'same')
-        # pool3_conv1_3 = tf.layers.conv2d(pool3_3, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        # conv2_pool3_upscaled_3 = tf.image.resize_images(pool3_conv1_3, [config.nx, config.nx])   
-        # inception3 = tf.nn.relu(tf.concat([inception2,conv3a_upscaled_3,conv4b_upscaled_3,conv4c_upscaled_3,conv2_pool3_upscaled_3], axis=3))
-        
-        inception_final_conv1 = tf.layers.conv2d(inception1 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        inception_final_conv2 = tf.layers.conv2d(inception_final_conv1 ,filters=192,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        
-        
-        pressure = tf.layers.conv2d(inputs=inception_final_conv2, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
+        pressure = tf.layers.conv2d(inputs=inception_final_conv2, filters=1,kernel_size=[1,1],kernel_initializer=xavier, padding="same")
         pres_flat = tf.reshape(pressure,[-1,config.nx*config.nx,1])*config.max_val + config.mean_val
         dense_operator = tf.sparse_tensor_to_dense(tf.sparse_reorder(self.Div_U_operator_placeholder))
         Divergence = tf.matmul(dense_operator, pres_flat)
@@ -309,7 +294,7 @@ class Config():
     weight = 0.5
     lr = 1e-3
     load = True
-    n_epochs = 100
+    n_epochs = 1
     kernel_size = 6
     batch_size = 2
     n_filters = 10
