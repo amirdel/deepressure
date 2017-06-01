@@ -223,7 +223,7 @@ class InceptionTwo(Model):
                 save_path = self.saver.save(sess, self.config.save_model_path)
                 print("Model saved in file: %s" % save_path)
 
-    def run_epoch(self, sess, train_examples, dev_set, save_every=5):
+    def run_epoch(self, sess, train_examples, dev_set, save_every=1):
         save_dir = self.config.model_save_dir
         latest_file = os.path.join(save_dir, 'latest_train_model')
         config = self.config
