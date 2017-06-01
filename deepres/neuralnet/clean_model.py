@@ -80,35 +80,65 @@ class NNModel(Model):
         xavier = tf.contrib.layers.xavier_initializer()
         config = self.config
 
-        conv1_7x7_s2 = tf.layers.conv2d(self.perm_placeholder, filters=96,kernel_size=[7,7],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv1_7x7_s2 = tf.layers.conv2d(self.perm_placeholder, filters=64,kernel_size=[7,7],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         pool1_3x3_s2 = tf.layers.max_pooling2d(inputs=conv1_7x7_s2, pool_size=[3,3], strides=2, padding = 'same')
         pool1_norm1 = tf.nn.lrn(pool1_3x3_s2)
-        conv2_3x3_reduce = tf.layers.conv2d(pool1_norm1, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv2_3x3 = tf.layers.conv2d(conv2_3x3_reduce ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv2_3x3_reduce = tf.layers.conv2d(pool1_norm1, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv2_3x3 = tf.layers.conv2d(conv2_3x3_reduce ,filters=96,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv2_norm2 = tf.nn.lrn(conv2_3x3)
         pool2_3x3_s2 = tf.layers.max_pooling2d(inputs=conv2_norm2, pool_size=[3,3], strides=2, padding = 'same')
         
-        conv3a = tf.layers.conv2d(pool2_3x3_s2, filters=192,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv3a = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv3a_upscaled = tf.image.resize_images(conv3a, [config.nx, config.nx])         
 
-        conv3b = tf.layers.conv2d(pool2_3x3_s2 ,filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4b = tf.layers.conv2d(conv3b ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv3b = tf.layers.conv2d(pool2_3x3_s2 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv4b = tf.layers.conv2d(conv3b ,filters=96,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv4b_upscaled = tf.image.resize_images(conv4b, [config.nx, config.nx])         
 
-        conv3c = tf.layers.conv2d(pool2_3x3_s2, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        conv4c = tf.layers.conv2d(conv3c ,filters=128,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv3c = tf.layers.conv2d(pool2_3x3_s2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        conv4c = tf.layers.conv2d(conv3c ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv4c_upscaled = tf.image.resize_images(conv4c, [config.nx, config.nx])          
         pool3 = tf.layers.max_pooling2d(inputs=pool2_3x3_s2, pool_size=[3,3], strides=1, padding = 'same')
-        pool3_conv1 = tf.layers.conv2d(pool3, filters=192,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        pool3_conv1 = tf.layers.conv2d(pool3, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         conv2_pool3_upscaled = tf.image.resize_images(pool3_conv1, [config.nx, config.nx])   
-        inception1 = tf.nn.relu(tf.concat([conv3a_upscaled,conv4b_upscaled,conv4c_upscaled,conv2_pool3_upscaled], axis=3))
 
+        inception1 = tf.nn.relu(tf.concat([conv1_7x7_s2,conv3a_upscaled,conv4b_upscaled,conv4c_upscaled,conv2_pool3_upscaled], axis=3))
 
+        # conv3a_2 = tf.layers.conv2d(inception1, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv3a_upscaled_2 = tf.image.resize_images(conv3a_2, [config.nx, config.nx])         
+
+        # conv3b_2 = tf.layers.conv2d(inception1 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4b_2 = tf.layers.conv2d(conv3b_2 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4b_upscaled_2 = tf.image.resize_images(conv4b_2, [config.nx, config.nx])         
+
+        # conv3c_2 = tf.layers.conv2d(inception1, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4c_2 = tf.layers.conv2d(conv3c_2 ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4c_upscaled_2 = tf.image.resize_images(conv4c_2, [config.nx, config.nx])          
+        # pool3_2 = tf.layers.max_pooling2d(inputs=inception1, pool_size=[3,3], strides=1, padding = 'same')
+        # pool3_conv1_2 = tf.layers.conv2d(pool3_2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv2_pool3_upscaled_2 = tf.image.resize_images(pool3_conv1_2, [config.nx, config.nx])   
+        # inception2 = tf.nn.relu(tf.concat([inception1,conv3a_upscaled_2,conv4b_upscaled_2,conv4c_upscaled_2,conv2_pool3_upscaled_2], axis=3))
+
+        # conv3a_3 = tf.layers.conv2d(inception2, filters=128,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv3a_upscaled_3 = tf.image.resize_images(conv3a_3, [config.nx, config.nx])         
+
+        # conv3b_3 = tf.layers.conv2d(inception2 ,filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4b_3 = tf.layers.conv2d(conv3b_3 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4b_upscaled_3 = tf.image.resize_images(conv4b_3, [config.nx, config.nx])         
+
+        # conv3c_3 = tf.layers.conv2d(inception2, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4c_3 = tf.layers.conv2d(conv3c_3 ,filters=96,kernel_size=[5,5],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv4c_upscaled_3 = tf.image.resize_images(conv4c_3, [config.nx, config.nx])          
+        # pool3_3 = tf.layers.max_pooling2d(inputs=inception2, pool_size=[3,3], strides=1, padding = 'same')
+        # pool3_conv1_3 = tf.layers.conv2d(pool3_3, filters=96,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        # conv2_pool3_upscaled_3 = tf.image.resize_images(pool3_conv1_3, [config.nx, config.nx])   
+        # inception3 = tf.nn.relu(tf.concat([inception2,conv3a_upscaled_3,conv4b_upscaled_3,conv4c_upscaled_3,conv2_pool3_upscaled_3], axis=3))
         
-        inception2_conv = tf.layers.conv2d(inception1 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
-        inception2_conv2 = tf.layers.conv2d(inception2_conv ,filters=192,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        inception_final_conv1 = tf.layers.conv2d(inception1 ,filters=128,kernel_size=[3,3],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
+        inception_final_conv2 = tf.layers.conv2d(inception_final_conv1 ,filters=192,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same",activation=tf.nn.relu)
         
-        pressure = tf.layers.conv2d(inputs=inception2_conv2, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
+        
+        pressure = tf.layers.conv2d(inputs=inception_final_conv2, filters=1,kernel_size=[1,1],kernel_initializer=tf.contrib.layers.xavier_initializer(), padding="same")
         pres_flat = tf.reshape(pressure,[-1,config.nx*config.nx,1])*config.max_val + config.mean_val
         dense_operator = tf.sparse_tensor_to_dense(tf.sparse_reorder(self.Div_U_operator_placeholder))
         Divergence = tf.matmul(dense_operator, pres_flat)
@@ -199,6 +229,8 @@ class NNModel(Model):
                 np.savez(save_file,best_velocity=best_velocity, best_pres = best_pres, perm=perm_dev,
                          U_face_operator = Div_U_operator_dev, pressure=U_pressure_dev)
                 print("new best norm found {:}".format(best_dev))
+                save_path = self.saver.save(sess, self.config.save_model_path)
+                print("Model saved in file: %s" % save_path)
 
     def run_epoch(self, sess, train_examples, dev_set):
         save_dir = self.config.model_save_dir
@@ -262,27 +294,28 @@ class NNModel(Model):
         self.pred, self.pres = self.add_prediction_op()
         self.loss = self.add_loss_op(self.pred,self.pres)
         self.train_op = self.add_training_op(self.loss)
+        self.saver = tf.train.Saver()
         self.loss_history = []
         self.iter_number = []
 
     def __init__(self, config):
         self.config = config
         self.build()
-    def saveLossHistory(self):
-        np.savez("velocity_loss_history_both",loss_history=self.loss_history,epoch_num = self.iter_number)
 
 from os.path import dirname
 class Config():
     weight = 0.5
     lr = 1e-3
+    load = True
     n_epochs = 100
     kernel_size = 6
     batch_size = 2
     n_filters = 10
     dropout = 0.2
-    model_name = 'yang_model'
+    model_name = 'clean_model'
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
     model_save_dir = os.path.join(proj_folder, 'temp', model_name, 'models')
+    save_model_path = os.path.join(model_save_dir, 'model_saved.ckpt')
 
 if __name__ == "__main__":
     print("Started running")
@@ -331,15 +364,26 @@ if __name__ == "__main__":
     with tf.Graph().as_default():
         print ("building Model")
         model = NNModel(config)
-        init = tf.global_variables_initializer()
+        
         with tf.Session() as session:
-            session.run(init)
-            diff = model.test_matrix_op(session, train_set)
-            print('sanity check:')
-            print('mean diff: ', np.mean(diff))
-            print('max diff: ', np.amax(np.abs(diff)))
-            print('error for reproducing divergence: ', np.linalg.norm(diff))
-            print(np.sum(np.array(np.abs(diff) > 1e-4, dtype=np.int)))
+            if config.load:
+                # saver object to save things
+                print ("loading model")
+                model.saver.restore(session, model.config.save_model_path)
+            else:
+                print ("initializing model from scratch")
+                init = tf.global_variables_initializer()
+                session.run(init)
+
+            if n_train < 200:
+                diff = model.test_matrix_op(session, train_set)
+                print('sanity check:')
+                print('mean diff: ', np.mean(diff))
+                print('max diff: ', np.amax(np.abs(diff)))
+                print('error for reproducing divergence: ', np.linalg.norm(diff))
+                print(np.sum(np.array(np.abs(diff) > 1e-4, dtype=np.int)))
+                
+            print('Number of trainable parameters : ',np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
             model.fit(session, train_set, dev_set)
             model.save_loss_history(os.path.join(proj_folder, 'temp', config.model_name, 'pics'))
 
