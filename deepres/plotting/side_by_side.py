@@ -23,3 +23,4 @@ def side_by_side(x_mat, y_mat, mat1, mat2, save_path):
     cbar = fig.colorbar(p2, ax_cmap, orientation='vertical')
     ax.set_aspect('equal', 'box')
     fig.savefig(save_path, format='png')
+    plt.close(fig)

@@ -199,7 +199,7 @@ class InceptionTwo(Model):
         # u_diff = sess.run()
         return predictions, pres
 
-    def fit(self, sess, train_set, dev_set):
+    def fit(self, sess, train_set, dev_set, reduce_every=2):
         save_dir = self.config.model_save_dir
         save_file = os.path.join(save_dir, 'best_validation_model')
         best_dev = 1e9
@@ -207,6 +207,8 @@ class InceptionTwo(Model):
         best_pres = None
 
         for epoch in range(self.config.n_epochs):
+            if epoch>0 and (not epoch%reduce_every):
+                self.config.lr *= self.config.lr_decay
             self.epoch_count = epoch
             self.save_loss_history(self.config.plot_dir)
             print ("Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
