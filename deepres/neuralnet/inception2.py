@@ -119,9 +119,9 @@ class InceptionTwo(Model):
         pool3_conv1 = tf.layers.conv2d(pool3, filters=96,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
         conv2_pool3_upscaled = tf.image.resize_images(pool3_conv1, [config.nx, config.nx])
         inception1 = relu(tf.concat([conv1_7x7_s2,conv3a_upscaled,conv4b_upscaled,conv4c_upscaled,conv2_pool3_upscaled], axis=3))
-
-        # inception2 = self.inception(inception1)
-        last_inception = self.inception(inception1)
+        last_inception = inception1
+        for i in range(config.n_inception-1):
+            last_inception = self.inception(last_inception)
 
         inception_final_conv1 = tf.layers.conv2d(last_inception ,filters=128,kernel_size=[3,3],kernel_initializer=xavier, padding="same",activation=relu)
         inception_final_conv2 = tf.layers.conv2d(inception_final_conv1 ,filters=192,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
