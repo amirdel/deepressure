@@ -255,10 +255,15 @@ class InceptionTwo(Model):
         np.savez(latest_file, pred_train=pred_train,pres_train=pres_train,perm=perm_train,U_face_operator = Div_U_operator_train,
                  pressure=U_pressure_train)
         # save the results every save_every epochs
+        n_save = min(config.batch_size, 4)
         if not self.epoch_count%save_every:
             epoch_file = os.path.join(save_dir, 'epoch'+str(self.epoch_count))
-            np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
-                     U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
+            # TODO: saving only a few predicted values
+            # np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
+            #          U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
+            np.savez(epoch_file, pred_train=pred_train[:n_save, :],
+                     pres_train=pres_train[:n_save, :, :, :],
+                     U_face_operator=Div_U_operator_train[:n_save])
 
         # print("------Evaluating on dev set------")
         #batch over dev
@@ -281,6 +286,14 @@ class InceptionTwo(Model):
             averageNorm = np.sum(norms)*0.5/len(norms)
             # print("Norm for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,averageNorm))
             batchNum += 1
+        if not self.epoch_count%save_every:
+            epoch_file = os.path.join(save_dir, 'epoch_dev'+str(self.epoch_count))
+            # TODO: saving only a few dev values
+            # np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
+            #          U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
+            np.savez(epoch_file, pred_train=pred[:n_save, :],
+                     pres_train=pres[:n_save, :, :, :],
+                     U_face_operator=Div_U_operator_dev[:n_save])
         return np.sum(norms)*0.5/len(dev_set), predAll, presAll
 
     def recordOutput(self,loss,batchNum,loss_ratio=None):
