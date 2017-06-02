@@ -152,10 +152,15 @@ class InceptionTwo(Model):
             loss: A 0-d tensor (scalar) output
         """
         config = self.config
-        v_weight = config.weight
-        loss = tf.nn.l2_loss(pred_pressure - self.pressure_placeholder) + \
-               v_weight * tf.nn.l2_loss(pred_divergence) #
-        return loss
+        div_weight, tv_weight = config.weight, config.tv_weight
+        lp = tf.nn.l2_loss(pred_pressure - self.pressure_placeholder)
+        ld = div_weight * tf.nn.l2_loss(pred_divergence)
+        loss_ratio = lp/ld
+        # total variation of divergence
+        div_tensor = tf.reshape(pred_divergence, [-1, config.nx, config.nx, 1])
+        lv = tv_weight * tf.reduce_mean(tf.image.total_variation(div_tensor))
+        loss =  lp + ld + lv
+        return loss, loss_ratio
 
     def add_training_op(self, loss):
         """Sets up the training Ops.
@@ -182,8 +187,9 @@ class InceptionTwo(Model):
             loss: loss over the batch (a scalar)
         """
         feed = self.create_feed_dict(perm_batch , Div_U_operator_batch, True, U_pressure_batch)
-        _, loss = sess.run([self.train_op, self.loss], feed_dict=feed)
-        return loss/(len(perm_batch))
+        # _, loss = sess.run([self.train_op, self.loss], feed_dict=feed)
+        _, loss, loss_ratio = sess.run([self.train_op, self.loss, self.loss_ratio], feed_dict=feed)
+        return loss/(len(perm_batch)), loss_ratio
 
     def predict_on_batch(self, sess, perm_batch, Div_U_operator_batch):
         """Make predictions for the provided batch of data
@@ -209,9 +215,9 @@ class InceptionTwo(Model):
         for epoch in range(self.config.n_epochs):
             if epoch>0 and (not epoch%reduce_every):
                 self.config.lr *= self.config.lr_decay
+                self.save_loss_history(self.config.plot_dir)
             self.epoch_count = epoch
-            self.save_loss_history(self.config.plot_dir)
-            print ("Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
+            print ("------- Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
             dev_score, pred , pres= self.run_epoch(sess, train_set, dev_set)
 
             if dev_score < best_dev:
@@ -239,12 +245,12 @@ class InceptionTwo(Model):
             batch_train = [ train_examples[i] for i in ind[i:i+config.batch_size]]
             perm_train, Div_U_operator_train, U_pressure_train =  zip(*batch_train)
 
-            loss = self.train_on_batch(sess, perm_train, Div_U_operator_train, U_pressure_train)
-            self.recordOutput(loss,batchNum)
+            loss, loss_ratio = self.train_on_batch(sess, perm_train, Div_U_operator_train, U_pressure_train)
+            self.recordOutput(loss, batchNum, loss_ratio)
 
             print("Loss for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,loss))
             batchNum += 1
-
+        print('-- loss ratio (Div/Pres) for the last batch: {0}'.format(loss_ratio))
         pred_train ,pres_train= self.predict_on_batch(sess, perm_train, Div_U_operator_train)
         np.savez(latest_file, pred_train=pred_train,pres_train=pres_train,perm=perm_train,U_face_operator = Div_U_operator_train,
                  pressure=U_pressure_train)
@@ -254,7 +260,7 @@ class InceptionTwo(Model):
             np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
                      U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
 
-        print("------Evaluating on dev set------")
+        # print("------Evaluating on dev set------")
         #batch over dev
         num_dev = len(dev_set)
         batchNum = 1
@@ -273,29 +279,38 @@ class InceptionTwo(Model):
             presAll[devInd:devInd+config.batch_size] = pres
             predAll[devInd:devInd+config.batch_size] = pred
             averageNorm = np.sum(norms)*0.5/len(norms)
-            print("Norm for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,averageNorm))
+            # print("Norm for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,averageNorm))
             batchNum += 1
         return np.sum(norms)*0.5/len(dev_set), predAll, presAll
 
-    def recordOutput(self,loss,batchNum):
+    def recordOutput(self,loss,batchNum,loss_ratio=None):
         self.loss_history.append(loss)
         self.iter_number.append(float(self.epoch_count)+np.float(batchNum*self.config.batch_size/np.float(self.config.n_train)))
+        if True:
+            self.loss_ratio_history.append(loss_ratio)
 
     def save_loss_history(self, save_folder):
         np.savez(os.path.join(save_folder, 'loss'), loss=self.loss_history, iter_number=self.iter_number)
         fig, ax = plt.subplots(1,1)
         ax.plot(self.iter_number, self.loss_history)
         fig.savefig(os.path.join(save_folder, 'loss.png'), format='png')
+        ax.set_title('loss')
+        plt.close(fig)
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(self.iter_number[1:], self.loss_ratio_history[1:])
+        fig.savefig(os.path.join(save_folder, 'loss_ratio.png'), format='png')
+        ax.set_title('p_loss/div_loss')
         plt.close(fig)
 
     def build(self):
         self.add_placeholders()
         self.pred, self.pres = self.add_prediction_op()
-        self.loss = self.add_loss_op(self.pred,self.pres)
+        self.loss, self.loss_ratio = self.add_loss_op(self.pred, self.pres)
         self.train_op = self.add_training_op(self.loss)
         self.saver = tf.train.Saver()
         self.loss_history = []
         self.iter_number = []
+        self.loss_ratio_history = []
 
     def __init__(self, config):
         self.config = config
