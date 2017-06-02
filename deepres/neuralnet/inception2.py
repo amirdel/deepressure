@@ -255,14 +255,15 @@ class InceptionTwo(Model):
         np.savez(latest_file, pred_train=pred_train,pres_train=pres_train,perm=perm_train,U_face_operator = Div_U_operator_train,
                  pressure=U_pressure_train)
         # save the results every save_every epochs
-        n_save = min(config.batch_size, 4)
+        n_save = min(config.batch_size, 1)
         if not self.epoch_count%save_every:
             epoch_file = os.path.join(save_dir, 'epoch'+str(self.epoch_count))
             # TODO: saving only a few predicted values
             # np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
             #          U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
+            small_p = [U_pressure_train[ss] for ss in range(n_save)]
             np.savez(epoch_file, pred_train=pred_train[:n_save, :],
-                     pres_train=pres_train[:n_save, :, :, :],
+                     pres_train=pres_train[:n_save, :, :, :], pressure=small_p,
                      U_face_operator=Div_U_operator_train[:n_save])
 
         # print("------Evaluating on dev set------")
@@ -291,8 +292,9 @@ class InceptionTwo(Model):
             # TODO: saving only a few dev values
             # np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
             #          U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
+            small_p = [U_pressure_dev[ss] for ss in range(n_save)]
             np.savez(epoch_file, pred_train=pred[:n_save, :],
-                     pres_train=pres[:n_save, :, :, :],
+                     pres_train=pres[:n_save, :, :, :], pressure=small_p,
                      U_face_operator=Div_U_operator_dev[:n_save])
         return np.sum(norms)*0.5/len(dev_set), predAll, presAll
 
