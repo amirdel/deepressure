@@ -158,6 +158,16 @@ class BaseModel(Model):
         error = np.linalg.norm(model_p-actual_p)/np.linalg.norm(actual_p)
         return error
 
+    def save_divergence(self, div, mode):
+        if mode == 'train':
+            norm2, norm_max = self.train_divergence_fro, self.train_divergence_max
+        else:
+            norm2, norm_max = self.validation_divergence_fro, self.validation_divergence_max
+        norm2.append(np.linalg.norm(div)/div.shape[0])
+        # mean over batch samples of maximum abs divergence
+        norm_max.append(np.mean(np.amax(np.abs(div), axis=1)))
+
+
     def run_epoch(self, sess, train_examples, dev_set, save_every=2):
         save_dir = self.config.model_save_dir
         latest_file = os.path.join(save_dir, 'latest_train_model')
@@ -183,6 +193,7 @@ class BaseModel(Model):
         # find the training error
         train_error = self.p_error(pres_train, U_pressure_train)
         self.train_error.append(train_error)
+        self.save_divergence(pred_train, 'train')
         print('------- traning error: {0}'.format(train_error))
         np.savez(latest_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
                  U_face_operator=Div_U_operator_train,
@@ -227,6 +238,7 @@ class BaseModel(Model):
         # find the validation error for one batch of validation
         validation_error = self.p_error(pres, U_pressure_dev)
         self.validation_error.append(validation_error)
+        self.save_divergence(pred, 'validation')
         print('------- validation error: {0}'.format(validation_error))
         if not self.epoch_count % save_every:
             epoch_file = os.path.join(save_dir, 'epoch_dev' + str(self.epoch_count))
@@ -245,6 +257,15 @@ class BaseModel(Model):
             float(self.epoch_count) + np.float(batchNum * self.config.batch_size / np.float(self.config.n_train)))
         if True:
             self.loss_ratio_history.append(loss_ratio)
+
+    def plot_both(self, save_path, train, validation):
+        fig, ax = plt.subplots(1, 1)
+        fig.hold(True)
+        ax.plot(train, label='train')
+        ax.plot(validation, label='validation')
+        ax.legend(loc='best')
+        fig.savefig(save_path, format='png')
+        plt.close(fig)
 
     def save_loss_history(self, save_folder):
         # save the loss
@@ -268,7 +289,14 @@ class BaseModel(Model):
         ax.legend(loc='best')
         fig.savefig(os.path.join(save_folder, 'accuracy.png'), format='png')
         plt.close(fig)
-
+        # save the divergence
+        np.savez(os.path.join(save_folder, 'divergence'), train_fro=self.train_divergence_fro,
+                 train_max=self.train_divergence_max, validation_fro=self.validation_divergence_fro,
+                 validation_max=self.validation_divergence_max)
+        fro_path = os.path.join(save_folder, 'divergence_fro.png')
+        self.plot_both(fro_path, self.train_divergence_fro, self.validation_divergence_fro)
+        max_path = os.path.join(save_folder, 'divergence_max.png')
+        self.plot_both(max_path, self.train_divergence_max, self.validation_divergence_max)
 
     def build(self):
         self.add_placeholders()
@@ -281,6 +309,8 @@ class BaseModel(Model):
         self.loss_ratio_history = []
         self.train_error = []
         self.validation_error = []
+        self.train_divergence_max, self.train_divergence_fro = [], []
+        self.validation_divergence_max, self.validation_divergence_fro = [], []
 
     def __init__(self, config):
         self.config = config
