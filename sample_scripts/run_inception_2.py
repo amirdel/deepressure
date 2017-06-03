@@ -5,13 +5,16 @@ import numpy as np
 from deepres.neuralnet.inception2 import InceptionTwo
 
 class Config():
-    weight = 0.5
-    lr = 1e-3
-    load = True
-    n_epochs = 1
-    kernel_size = 6
-    batch_size = 2
+    weight = 10.0
+    tv_weight = 1.0
+    n_inception = 1
+    lr = 3e-4
+    init_lr = lr
+    lr_decay = 0.96
     dropout = 0.2
+    load = False
+    n_epochs = 20
+    batch_size = 8
     model_name = 'inception_2'
     proj_folder = dirname(dirname(os.path.realpath(__file__)))
     result_root = os.path.join(proj_folder, 'results')
@@ -36,7 +39,7 @@ for folder in [result_root, case_folder, save_folder, model_folder]:
         os.mkdir(folder)
 ### setting number of training and validation
 n_train = 2
-n_dev = 4
+n_dev = 2
 X = datFile['X']
 Y_in = datFile['Y']
 Div_U_operator = datFile['Div_u_operator']
@@ -80,7 +83,7 @@ with tf.Graph().as_default():
 
         print('Number of trainable parameters : ',
               np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
-        model.fit(session, train_set, dev_set)
+        model.fit(session, train_set, dev_set, reduce_every=1)
         model.save_loss_history(config.plot_dir)
 
 ################################################################################################
@@ -100,7 +103,7 @@ modelfile = np.load(os.path.join(model_folder, 'latest_train_model.npz'))
 X = modelfile['perm']
 pressure_actual = modelfile['pressure']
 p_pred = modelfile['pres_train']
-
+Div_array = modelfile['U_face_operator']
 print('shape of model: ', p_pred.shape)
 with open(grid_path, 'rb') as input:
     grid = pickle.load(input)
@@ -110,7 +113,16 @@ gridx = grid.pores.x
 gridy = grid.pores.y
 x_mat = np.reshape(gridx, (nx, nx))
 y_mat = np.reshape(gridy, (nx, nx))
-
-for i in range(2):
+import matplotlib.pyplot as plt
+for i in range(1):
     save_path = os.path.join(save_folder, 'p_last_epoch{:}.png'.format(i))
     side_by_side(x_mat, y_mat, p_pred[i, :, :, 0], pressure_actual[i, :, :, 0], save_path)
+    Div_operator = Div_array[i]
+    Div = Div_operator.dot(np.reshape(p_pred[i, :, :, 0], (-1, 1)))
+    fig, ax = plt.subplots(1, 1)
+    div_mat = np.reshape(Div, (nx, nx))
+    p = ax.pcolormesh(x_mat, y_mat, np.abs(div_mat), cmap=plt.cm.coolwarm)
+    cbar = fig.colorbar(p, fraction=0.046, pad=0.04)
+    ax.set_aspect('equal', 'box')
+    fig.savefig(os.path.join(save_folder, 'divergence' + str(i) + '.png'), format='png')
+    plt.close(fig)
