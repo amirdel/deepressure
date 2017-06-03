@@ -122,7 +122,7 @@ class InceptionTwo(Model):
         last_inception = inception1
         for i in range(config.n_inception-1):
             last_inception = self.inception(last_inception)
-
+        # TODO: Dropout
         inception_final_conv1 = tf.layers.conv2d(last_inception ,filters=128,kernel_size=[3,3],kernel_initializer=xavier, padding="same",activation=relu)
         inception_final_conv2 = tf.layers.conv2d(inception_final_conv1 ,filters=192,kernel_size=[1,1],kernel_initializer=xavier, padding="same",activation=relu)
 
@@ -206,6 +206,7 @@ class InceptionTwo(Model):
         return predictions, pres
 
     def fit(self, sess, train_set, dev_set, reduce_every=2):
+        config = self.config
         save_dir = self.config.model_save_dir
         save_file = os.path.join(save_dir, 'best_validation_model')
         best_dev = 1e9
@@ -214,10 +215,11 @@ class InceptionTwo(Model):
 
         for epoch in range(self.config.n_epochs):
             if epoch>0 and (not epoch%reduce_every):
-                self.config.lr *= self.config.lr_decay
+                config.lr = config.init_lr*config.lr_decay**epoch
                 self.save_loss_history(self.config.plot_dir)
             self.epoch_count = epoch
             print ("------- Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
+            print('------- lr: {0}'.format(self.config.lr))
             dev_score, pred , pres= self.run_epoch(sess, train_set, dev_set)
 
             if dev_score < best_dev:
@@ -257,14 +259,17 @@ class InceptionTwo(Model):
         # save the results every save_every epochs
         n_save = min(config.batch_size, 1)
         if not self.epoch_count%save_every:
+            # rerun on the first example of the training set and save that case
+            perm_train, Div_U_operator_train, U_pressure_train = zip(*[train_examples[0]])
+            pred_train ,pres_train= self.predict_on_batch(sess, perm_train, Div_U_operator_train)
             epoch_file = os.path.join(save_dir, 'epoch'+str(self.epoch_count))
+            np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
+                     U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
             # TODO: saving only a few predicted values
-            # np.savez(epoch_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
-            #          U_face_operator=Div_U_operator_train, pressure=U_pressure_train)
-            small_p = [U_pressure_train[ss] for ss in range(n_save)]
-            np.savez(epoch_file, pred_train=pred_train[:n_save, :],
-                     pres_train=pres_train[:n_save, :, :, :], pressure=small_p,
-                     U_face_operator=Div_U_operator_train[:n_save])
+            # small_p = [U_pressure_train[ss] for ss in range(n_save)]
+            # np.savez(epoch_file, pred_train=pred_train[:n_save, :],
+            #          pres_train=pres_train[:n_save, :, :, :], pressure=small_p,
+            #          U_face_operator=Div_U_operator_train[:n_save])
 
         # print("------Evaluating on dev set------")
         #batch over dev
