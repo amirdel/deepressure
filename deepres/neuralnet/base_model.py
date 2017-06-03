@@ -127,18 +127,20 @@ class BaseModel(Model):
         return predictions, pres
 
     def fit(self, sess, train_set, dev_set, reduce_every=2):
+        config = self.config
         save_dir = self.config.model_save_dir
         save_file = os.path.join(save_dir, 'best_validation_model')
         best_dev = 1e9
         best_velocity = None
         best_pres = None
 
-        for epoch in range(self.config.n_epochs):
+        for epoch in range(config.n_epochs):
             if epoch > 0 and (not epoch % reduce_every):
-                self.config.lr *= self.config.lr_decay
+                config.lr = config.init_lr*config.lr_decay**epoch
                 self.save_loss_history(self.config.plot_dir)
             self.epoch_count = epoch
             print("------- Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
+            print("------- learning rate {0}".format(config.lr))
             dev_score, pred, pres = self.run_epoch(sess, train_set, dev_set)
 
             if dev_score < best_dev:
@@ -151,6 +153,10 @@ class BaseModel(Model):
                 print("new best norm found {:}".format(best_dev))
                 save_path = self.saver.save(sess, self.config.save_model_path)
                 print("Model saved in file: %s" % save_path)
+
+    def p_error(self, model_p, actual_p):
+        error = np.linalg.norm(model_p-actual_p)/np.linalg.norm(actual_p)
+        return error
 
     def run_epoch(self, sess, train_examples, dev_set, save_every=2):
         save_dir = self.config.model_save_dir
@@ -171,8 +177,12 @@ class BaseModel(Model):
 
             print("Loss for Batch {:} out of {:} is: {:}".format(batchNum, num_batch, loss))
             batchNum += 1
-        print('-- loss ratio (Div/Pres) for the last batch: {0}'.format(loss_ratio))
+        # print('-- loss ratio (Div/Pres) for the last batch: {0}'.format(loss_ratio))
+        # get the predictions of this model on the last batch
         pred_train, pres_train = self.predict_on_batch(sess, perm_train, Div_U_operator_train)
+        # find the training error
+        train_error = self.p_error(pres_train, U_pressure_train)
+        print('------- traning error: {0}'.format(train_error))
         np.savez(latest_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
                  U_face_operator=Div_U_operator_train,
                  pressure=U_pressure_train)
@@ -213,6 +223,9 @@ class BaseModel(Model):
             averageNorm = np.sum(norms) * 0.5 / len(norms)
             # print("Norm for Batch {:} out of {:} is: {:}".format(batchNum,num_batch,averageNorm))
             batchNum += 1
+        # find the validation error for one batch of validation
+        validation_error = self.p_error(pres, U_pressure_dev)
+        print('------- validation error: {0}'.format(validation_error))
         if not self.epoch_count % save_every:
             epoch_file = os.path.join(save_dir, 'epoch_dev' + str(self.epoch_count))
             # TODO: saving only a few dev values
