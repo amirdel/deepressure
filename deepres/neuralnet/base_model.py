@@ -182,6 +182,7 @@ class BaseModel(Model):
         pred_train, pres_train = self.predict_on_batch(sess, perm_train, Div_U_operator_train)
         # find the training error
         train_error = self.p_error(pres_train, U_pressure_train)
+        self.train_error.append(train_error)
         print('------- traning error: {0}'.format(train_error))
         np.savez(latest_file, pred_train=pred_train, pres_train=pres_train, perm=perm_train,
                  U_face_operator=Div_U_operator_train,
@@ -225,6 +226,7 @@ class BaseModel(Model):
             batchNum += 1
         # find the validation error for one batch of validation
         validation_error = self.p_error(pres, U_pressure_dev)
+        self.validation_error.append(validation_error)
         print('------- validation error: {0}'.format(validation_error))
         if not self.epoch_count % save_every:
             epoch_file = os.path.join(save_dir, 'epoch_dev' + str(self.epoch_count))
@@ -245,6 +247,7 @@ class BaseModel(Model):
             self.loss_ratio_history.append(loss_ratio)
 
     def save_loss_history(self, save_folder):
+        # save the loss
         np.savez(os.path.join(save_folder, 'loss'), loss=self.loss_history, iter_number=self.iter_number)
         fig, ax = plt.subplots(1, 1)
         ax.plot(self.iter_number, self.loss_history)
@@ -256,6 +259,16 @@ class BaseModel(Model):
         fig.savefig(os.path.join(save_folder, 'loss_ratio.png'), format='png')
         ax.set_title('p_loss/div_loss')
         plt.close(fig)
+        # save the error
+        np.savez(os.path.join(save_folder, 'error'), train=self.train_error, validation=self.validation_error)
+        fig, ax = plt.subplots(1, 1)
+        fig.hold(True)
+        ax.plot(1-np.array(self.train_error), label='train')
+        ax.plot(1-np.array(self.validation_error), label='validation')
+        ax.legend(loc='best')
+        fig.savefig(os.path.join(save_folder, 'accuracy.png'), format='png')
+        plt.close(fig)
+
 
     def build(self):
         self.add_placeholders()
@@ -266,6 +279,8 @@ class BaseModel(Model):
         self.loss_history = []
         self.iter_number = []
         self.loss_ratio_history = []
+        self.train_error = []
+        self.validation_error = []
 
     def __init__(self, config):
         self.config = config
