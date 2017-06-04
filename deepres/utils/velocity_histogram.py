@@ -63,7 +63,9 @@ if __name__ == "__main__":
     # path to the network prediction file
     # result_path = os.path.join(proj_folder, 'results', 'inception_2', 'models',
     #                            'best_validation_model.npz')
-    result_path = os.path.join(proj_folder, 'results/inception4_nodrop',
+    # result_path = os.path.join(proj_folder, 'results/inception4_nodrop',
+    #                            'best_validation_model.npz')
+    result_path = os.path.join(proj_folder, 'results/inception3_dout_08',
                                'best_validation_model.npz')
     result_file = np.load(result_path)
     # result_perm = result_file['perm']
@@ -84,7 +86,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(1,1)
     ax.hold(True)
     ax.plot(centers, input_cdf, label='True')
-    ax.plot(centers, model_cdf, label='model')
+    ax.plot(centers, model_cdf, label='ConvNet')
     ax.legend()
     fig.savefig('/home/amirhossein/Desktop/temp.png', format='png')
     plt.close(fig)
@@ -93,7 +95,8 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(1, 1)
     ax.hold(True)
     ax.plot(centers, input_cdf, label='True')
-    ax.plot(centers, model_cdf, label='model')
+    ax.plot(centers, model_cdf, label='ConvNet')
+    ax.set_title('PDF of x velocity component')
     ax.legend()
     fig.savefig('/home/amirhossein/Desktop/temp2.png', format='png')
     plt.close(fig)
