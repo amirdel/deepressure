@@ -8,12 +8,12 @@ class Config():
     weight = 10.0
     tv_weight = 1.0
     n_inception = 1
-    lr = 3e-4
+    lr = 0
     init_lr = lr
     lr_decay = 0.96
     dropout = 0.2
-    load = False
-    n_epochs = 20
+    load = True
+    n_epochs = 2
     batch_size = 8
     model_name = 'inception_2'
     proj_folder = dirname(dirname(os.path.realpath(__file__)))
@@ -26,7 +26,7 @@ print("Started running")
 config = Config()
 proj_folder = config.proj_folder
 print(proj_folder)
-datFile = np.load(os.path.join(proj_folder, 'data', 'data_64_nonperiodic.npz'))
+datFile = np.load(os.path.join(proj_folder, 'data', 'data_64_nonperiodic_test.npz'))
 
 print("Making folders")
 # results root folder
@@ -39,7 +39,7 @@ for folder in [result_root, case_folder, save_folder, model_folder]:
         os.mkdir(folder)
 ### setting number of training and validation
 n_train = 2
-n_dev = 2
+n_dev = 1200
 X = datFile['X']
 Y_in = datFile['Y']
 Div_U_operator = datFile['Div_u_operator']
@@ -56,7 +56,7 @@ for i in range(n_train):
 
 dev_set = []
 for i in range(n_dev):
-    dev_set.append((X[i + n_train, :, :, :], Div_U_operator[i + n_train], Y[i + n_train, :, :, :]))
+    dev_set.append((X[i , :, :, :], Div_U_operator[i ], Y[i , :, :, :]))
 
 config.n_train = n_train
 with tf.Graph().as_default():
