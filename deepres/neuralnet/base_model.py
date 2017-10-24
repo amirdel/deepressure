@@ -135,9 +135,10 @@ class BaseModel(Model):
         best_pres = None
 
         for epoch in range(config.n_epochs):
+            self.save_loss_history(self.config.plot_dir)
             if epoch > 0 and (not epoch % reduce_every):
                 config.lr = config.init_lr*config.lr_decay**epoch
-                self.save_loss_history(self.config.plot_dir)
+                # self.save_loss_history(self.config.plot_dir)
             self.epoch_count = epoch
             print("------- Epoch {:} out of {:}".format(epoch + 1, self.config.n_epochs))
             print("------- learning rate {0}".format(config.lr))

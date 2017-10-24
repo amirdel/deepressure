@@ -45,12 +45,19 @@ def get_hist_from_bins(input_array, input_bins):
     sort_idx = np.argsort(input_array)
     sorted_input = input_array[sort_idx]
     #histogram of the values that occur ignoring the frequency
-    h,bins = np.histogram(sorted_input, bins = input_bins)
+    h,bins = np.histogram(sorted_input, bins = input_bins, normed=True)
+    # h = np.sum(h)
     center_vals = 0.5*np.diff(bins) + bins[:-1]
     return center_vals, h
 
 if __name__ == "__main__":
     # load the grid
+    # plt.rcParams.update({'font.size': 20})
+    # plt.rc('xtick', labelsize=16)
+    # plt.rc('ytick', labelsize=16)
+    # legendsize=15
+    legendsize=12
+    plt.rcParams.update({'figure.autolayout': True})
     proj_folder = dirname(dirname(dirname(os.path.realpath(__file__))))
     grid_path = os.path.join(proj_folder, 'data', 'grids', '64_64_nonperiodic.pkl')
     with open(grid_path, 'rb') as input:
@@ -75,11 +82,15 @@ if __name__ == "__main__":
     result_real_pressure = result_file['pressure']
     u_model, v_model = velocity_from_pressure(result_perm, result_pressure, grid)
     u_input, v_input = velocity_from_pressure(result_perm, result_real_pressure, grid)
+    print(np.mean(u_input), np.mean(u_model))
     # print(u_input)
     # print(u_model)
     vmin = min(np.amin(u_input), np.amin(u_model))
     vmax = max(np.amax(u_input), np.amax(u_model))
-    # bins = np.linspace(vmin, vmax, 100)
+    bins = np.linspace(vmin, vmax, 100)
+    const = -1
+    u_input*=const
+    u_model*=const
     bins = np.linspace(-0.2, 0.2, 100)
     centers, input_cdf = get_cdf_from_bins(u_input, bins)
     _, model_cdf = get_cdf_from_bins(u_model, bins)
@@ -87,7 +98,7 @@ if __name__ == "__main__":
     ax.hold(True)
     ax.plot(centers, input_cdf, label='True')
     ax.plot(centers, model_cdf, label='ConvNet')
-    ax.legend()
+    ax.legend(fontsize=legendsize)
     fig.savefig('/home/amirhossein/Desktop/temp.png', format='png')
     plt.close(fig)
     centers, input_cdf = get_hist_from_bins(u_input, bins)
@@ -96,8 +107,8 @@ if __name__ == "__main__":
     ax.hold(True)
     ax.plot(centers, input_cdf, label='True')
     ax.plot(centers, model_cdf, label='ConvNet')
-    ax.set_title('PDF of x velocity component')
-    ax.legend()
+    # ax.set_title('PDF of x velocity component')
+    ax.legend(fontsize=legendsize)
     fig.savefig('/home/amirhossein/Desktop/temp2.png', format='png')
     plt.close(fig)
 

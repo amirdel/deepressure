@@ -38,11 +38,13 @@ gridy = grid.pores.y
 x_mat = np.reshape(gridx, (nx,nx))
 y_mat = np.reshape(gridy, (nx,nx))
 # plot permeability
-for i in range(1):
+for i in range(3):
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     perm_mat = X[i,:,:,0]
-    p = ax.pcolormesh(x_mat, y_mat, perm_mat, cmap=plt.cm.coolwarm)
+    # cm = plt.cm.RdYlBu_r
+    cm = plt.cm.coolwarm
+    p = ax.pcolormesh(x_mat, y_mat, perm_mat, cmap=cm, alpha=1.0)
     # ax.set_aspect('equal', 'box')
     # plot the cell center velocity on top of perm
     face_v_operator = face_vel_operator[i]
@@ -57,15 +59,16 @@ for i in range(1):
     u_cell, v_cell = get_cell_velocity(grid, u_face)
     # u_mat = np.reshape(u_cell, (nx,nx), order='F')
     # v_mat = np.reshape(v_cell, (nx,nx), order='F')
-    u_mat = np.reshape(u_cell, (nx, nx))
-    v_mat = np.reshape(v_cell, (nx, nx))
-    f = 12
-    ax.quiver(gridx[::f], gridy[::f], u_cell[::f], v_cell[::f], units='inches')
     # ax.streamplot(x_mat, y_mat, u_mat, v_mat, linewidth=1.0, color='w')
     ax.set_ybound([0,nx])
     ax.set_xbound([0,nx])
     ax.set_aspect('equal', 'box')
     cbar = fig.colorbar(p, fraction=0.046, pad=0.04)
+    u_mat = np.reshape(u_cell, (nx, nx))
+    v_mat = np.reshape(v_cell, (nx, nx))
+    f = 12
+    # ax.quiver(gridx[::f], gridy[::f], u_cell[::f], v_cell[::f], scale=2**.5, units='y')
+    # ax.quiver(gridx[::f], gridy[::f], u_cell[::f], v_cell[::f], units='inches')
     fig.savefig(os.path.join(save_folder, 'perm'+str(i)+'.png'), format='png')
     # plot pressure
     p_mat = Y[i,:,:,0]

@@ -6,7 +6,7 @@ from deepres.neuralnet.inception2 import InceptionTwo
 
 class Config():
     weight = 8.0
-    tv_weight = 6.0	
+    tv_weight = 6.0
     lr = 2e-4
     init_lr = lr
     lr_decay = 0.96
